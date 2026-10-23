@@ -125,29 +125,30 @@ p {
 }
 
 /* ---------------------------------------------------- */
-/* TOP UTILITY STRIP & STICKY GLASS HEADER             */
+/* ACCESSIBLE SKIP LINK & STICKY GLASS HEADER           */
 /* ---------------------------------------------------- */
-.utility {
-  padding: 8px 32px;
-  background: #0f1c1b;
-  color: #a4beba;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.utility span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.utility-country {
-  color: #6ee7b7;
+.skip {
+  position: absolute;
+  top: -9999px;
+  left: 16px;
+  z-index: 100;
+  padding: 10px 18px;
+  background: var(--ink);
+  color: #ffffff;
+  border-radius: var(--radius-sm);
   font-weight: 600;
+  font-size: 13px;
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+  transition: top 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skip:focus {
+  top: 16px;
+}
+
+.utility {
+  display: none !important;
 }
 
 .header {
