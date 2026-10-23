@@ -1,0 +1,4 @@
+[build]
+  base = "modern"
+  publish = "modern/.next"
+  command = "npm run build"
