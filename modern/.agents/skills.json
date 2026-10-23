@@ -1,0 +1,40 @@
+{
+  "$schema": "https://agentskills.io/schema/skills.json",
+  "skills": [
+    {
+      "name": "superpowers",
+      "path": "./skills/superpowers/SKILL.md",
+      "description": "Structured 7-phase software engineering methodology: brainstorming, git worktrees, task planning, TDD (RED-GREEN-REFACTOR), subagent execution, code review, and branch finishing."
+    },
+    {
+      "name": "everything-claude-code",
+      "path": "./skills/everything-claude-code/SKILL.md",
+      "description": "Agent performance harness, context memory management, research-first workflow, and AgentShield automated security scanner."
+    },
+    {
+      "name": "karpathy-guidelines",
+      "path": "./skills/karpathy-guidelines/SKILL.md",
+      "description": "Heuristic guardrails by Andrej Karpathy: Think Before Coding, Simplicity First, Surgical Changes (minimal diffs), and Goal-Driven Execution with strict verification."
+    },
+    {
+      "name": "anthropic-agent-skills",
+      "path": "./skills/anthropic-agent-skills/SKILL.md",
+      "description": "Anthropic open skill standard specification and reference implementations featuring progressive disclosure (discovery, activation, execution)."
+    },
+    {
+      "name": "ponytail",
+      "path": "./skills/ponytail/SKILL.md",
+      "description": "Minimalist architecture and dependency reduction framework. Enforces the 7-step Ladder of Laziness, prevents bloated dependencies, and prunes dead code."
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "path": "./skills/ui-ux-pro-max/SKILL.md",
+      "description": "Frontend design taste heuristics, 60-30-10 color rules, WCAG contrast verification, modern typography, responsive layout conventions, and component design systems."
+    },
+    {
+      "name": "graphify",
+      "path": "./skills/graphify/SKILL.md",
+      "description": "Deterministic codebase AST graph analysis and navigation. Generates dependency and call graphs, maps import hierarchies, and audits multi-file architectures."
+    }
+  ]
+}

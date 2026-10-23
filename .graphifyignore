@@ -1,0 +1,8 @@
+.tools/
+.codex/
+vendor/
+node_modules/
+storage/
+bootstrap/cache/
+.env*
+graphify-out/

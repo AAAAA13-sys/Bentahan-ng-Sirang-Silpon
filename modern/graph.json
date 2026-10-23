@@ -1,0 +1,1947 @@
+{
+  "generated_at": "2026-10-23T09:22:08.839106",
+  "nodes": [
+    {
+      "id": "drizzle.config.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [],
+      "raw_imports": [
+        "drizzle-kit"
+      ],
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "id": "next-env.d.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [],
+      "raw_imports": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/anthropic-agent-skills/scripts/validate_skill.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "parse_frontmatter",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "validate_skill_dir",
+          "type": "function"
+        },
+        {
+          "name": "validate_all",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "os",
+        "re",
+        "sys",
+        "argparse"
+      ],
+      "in_degree": 0,
+      "out_degree": 4
+    },
+    {
+      "id": ".agents/skills/everything-claude-code/scripts/agentshield.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "print_report",
+          "type": "function"
+        },
+        {
+          "name": "scan_directory",
+          "type": "function"
+        },
+        {
+          "name": "scan_file",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "os",
+        "re",
+        "sys",
+        "argparse"
+      ],
+      "in_degree": 0,
+      "out_degree": 4
+    },
+    {
+      "id": ".agents/skills/graphify/scripts/graphify.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "parse_code_file",
+          "type": "function"
+        },
+        {
+          "name": "detect_cycles",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "resolve_cross_references",
+          "type": "function"
+        },
+        {
+          "name": "resolve_import_path",
+          "type": "function"
+        },
+        {
+          "name": "find_all_files",
+          "type": "function"
+        },
+        {
+          "name": "parse_doc_file",
+          "type": "function"
+        },
+        {
+          "name": "build_graph",
+          "type": "function"
+        },
+        {
+          "name": "generate_markdown_report",
+          "type": "function"
+        },
+        {
+          "name": "parse_config_file",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "re",
+        "sys",
+        "argparse",
+        "datetime",
+        "json",
+        "os"
+      ],
+      "in_degree": 0,
+      "out_degree": 6
+    },
+    {
+      "id": ".agents/skills/karpathy-guidelines/scripts/surgical_verify.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "get_diff_stats",
+          "type": "function"
+        },
+        {
+          "name": "run_git",
+          "type": "function"
+        },
+        {
+          "name": "get_modified_files",
+          "type": "function"
+        },
+        {
+          "name": "get_diff_numstat",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "re",
+        "subprocess",
+        "sys"
+      ],
+      "in_degree": 0,
+      "out_degree": 3
+    },
+    {
+      "id": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "audit_file_sizes",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "audit_package_json",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "re",
+        "sys",
+        "argparse",
+        "json",
+        "os"
+      ],
+      "in_degree": 0,
+      "out_degree": 5
+    },
+    {
+      "id": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "reset",
+          "type": "function"
+        },
+        {
+          "name": "save_state",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "load_state",
+          "type": "function"
+        },
+        {
+          "name": "set_phase",
+          "type": "function"
+        },
+        {
+          "name": "next_phase",
+          "type": "function"
+        },
+        {
+          "name": "status",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "sys",
+        "argparse",
+        "datetime",
+        "json",
+        "os"
+      ],
+      "in_degree": 0,
+      "out_degree": 5
+    },
+    {
+      "id": ".agents/skills/ui-ux-pro-max/scripts/check_contrast.py",
+      "type": "source",
+      "extension": ".py",
+      "symbols": [
+        {
+          "name": "relative_luminance",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        },
+        {
+          "name": "srgb_channel_to_linear",
+          "type": "function"
+        },
+        {
+          "name": "contrast_ratio",
+          "type": "function"
+        },
+        {
+          "name": "hex_to_rgb",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "re",
+        "sys",
+        "argparse"
+      ],
+      "in_degree": 0,
+      "out_degree": 3
+    },
+    {
+      "id": "app/layout.tsx",
+      "type": "source",
+      "extension": ".tsx",
+      "symbols": [
+        {
+          "name": "RootLayout",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "./globals.css",
+        "next"
+      ],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": "app/api/account/[action]/route.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "POST",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "../../../../lib/auth"
+      ],
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "id": "app/api/health/route.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "GET",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "drizzle-orm",
+        "../../../lib/db"
+      ],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": "app/api/market/[...path]/route.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "handle",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "@/lib/validation",
+        "@/lib/auth",
+        "@/lib/market"
+      ],
+      "in_degree": 0,
+      "out_degree": 3
+    },
+    {
+      "id": "app/api/session/route.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "GET",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "../../../lib/auth"
+      ],
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "id": "app/[[...path]]/page.tsx",
+      "type": "source",
+      "extension": ".tsx",
+      "symbols": [
+        {
+          "name": "Page",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "../../components/market-app",
+        "react"
+      ],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": "components/market-app.tsx",
+      "type": "source",
+      "extension": ".tsx",
+      "symbols": [
+        {
+          "name": "OrderPage",
+          "type": "function"
+        },
+        {
+          "name": "Remote",
+          "type": "function"
+        },
+        {
+          "name": "Card",
+          "type": "function"
+        },
+        {
+          "name": "date",
+          "type": "function"
+        },
+        {
+          "name": "api",
+          "type": "function"
+        },
+        {
+          "name": "verify",
+          "type": "function"
+        },
+        {
+          "name": "Catalog",
+          "type": "function"
+        },
+        {
+          "name": "OrderDetail",
+          "type": "function"
+        },
+        {
+          "name": "money",
+          "type": "function"
+        },
+        {
+          "name": "EditorForm",
+          "type": "function"
+        },
+        {
+          "name": "MarketApp",
+          "type": "function"
+        },
+        {
+          "name": "session",
+          "type": "function"
+        },
+        {
+          "name": "DetailContent",
+          "type": "function"
+        },
+        {
+          "name": "Heading",
+          "type": "function"
+        },
+        {
+          "name": "Field",
+          "type": "function"
+        },
+        {
+          "name": "Auth",
+          "type": "function"
+        },
+        {
+          "name": "Errors",
+          "type": "function"
+        },
+        {
+          "name": "Home",
+          "type": "function"
+        },
+        {
+          "name": "Art",
+          "type": "function"
+        },
+        {
+          "name": "Workspace",
+          "type": "function"
+        },
+        {
+          "name": "useRemote",
+          "type": "function"
+        },
+        {
+          "name": "action",
+          "type": "function"
+        },
+        {
+          "name": "Link",
+          "type": "function"
+        },
+        {
+          "name": "ListingEditor",
+          "type": "function"
+        },
+        {
+          "name": "reserve",
+          "type": "function"
+        },
+        {
+          "name": "update",
+          "type": "function"
+        },
+        {
+          "name": "logout",
+          "type": "function"
+        },
+        {
+          "name": "submit",
+          "type": "function"
+        },
+        {
+          "name": "Gate",
+          "type": "function"
+        },
+        {
+          "name": "About",
+          "type": "function"
+        },
+        {
+          "name": "Detail",
+          "type": "function"
+        },
+        {
+          "name": "RequestError",
+          "type": "class"
+        },
+        {
+          "name": "and",
+          "type": "class"
+        }
+      ],
+      "raw_imports": [
+        "lucide-react",
+        "next/navigation",
+        "react"
+      ],
+      "in_degree": 1,
+      "out_degree": 3
+    },
+    {
+      "id": "db/schema.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "dates",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "drizzle-orm",
+        "drizzle-orm/pg-core"
+      ],
+      "in_degree": 5,
+      "out_degree": 2
+    },
+    {
+      "id": "lib/auth.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "currentUser",
+          "type": "function"
+        },
+        {
+          "name": "secret",
+          "type": "function"
+        },
+        {
+          "name": "handleAccount",
+          "type": "function"
+        },
+        {
+          "name": "createAuth",
+          "type": "function"
+        },
+        {
+          "name": "throttle",
+          "type": "function"
+        },
+        {
+          "name": "getAuth",
+          "type": "function"
+        },
+        {
+          "name": "publicUser",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "node:fs",
+        "./local-accounts",
+        "node:crypto",
+        "zod",
+        "drizzle-orm",
+        "./db",
+        "better-auth",
+        "./validation",
+        "node:path",
+        "better-auth/adapters/drizzle",
+        "../db/schema",
+        "bcryptjs"
+      ],
+      "in_degree": 2,
+      "out_degree": 12
+    },
+    {
+      "id": "lib/db.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "connect",
+          "type": "function"
+        },
+        {
+          "name": "closeDatabase",
+          "type": "function"
+        },
+        {
+          "name": "initializeDatabase",
+          "type": "function"
+        },
+        {
+          "name": "getDb",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "drizzle-orm/pglite",
+        "postgres",
+        "@electric-sql/pglite",
+        "node:path",
+        "../db/schema",
+        "drizzle-orm/postgres-js",
+        "node:fs/promises"
+      ],
+      "in_degree": 6,
+      "out_degree": 7
+    },
+    {
+      "id": "lib/local-accounts.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "seedLocalAccounts",
+          "type": "function"
+        },
+        {
+          "name": "localUsernameEmail",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "bcryptjs",
+        "drizzle-orm",
+        "../db/schema",
+        "./db"
+      ],
+      "in_degree": 2,
+      "out_degree": 4
+    },
+    {
+      "id": "lib/market.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "visibility",
+          "type": "function"
+        },
+        {
+          "name": "allowed",
+          "type": "function"
+        },
+        {
+          "name": "catalog",
+          "type": "function"
+        },
+        {
+          "name": "createListing",
+          "type": "function"
+        },
+        {
+          "name": "getListingForOrder",
+          "type": "function"
+        },
+        {
+          "name": "found",
+          "type": "function"
+        },
+        {
+          "name": "reserve",
+          "type": "function"
+        },
+        {
+          "name": "updateOrder",
+          "type": "function"
+        },
+        {
+          "name": "verifySeller",
+          "type": "function"
+        },
+        {
+          "name": "workspace",
+          "type": "function"
+        },
+        {
+          "name": "getOrder",
+          "type": "function"
+        },
+        {
+          "name": "listingData",
+          "type": "function"
+        },
+        {
+          "name": "updateListing",
+          "type": "function"
+        },
+        {
+          "name": "getListing",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "zod",
+        "drizzle-orm",
+        "./db",
+        "./validation",
+        "../db/schema"
+      ],
+      "in_degree": 0,
+      "out_degree": 5
+    },
+    {
+      "id": "lib/validation.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "parse",
+          "type": "function"
+        },
+        {
+          "name": "sameOrigin",
+          "type": "function"
+        },
+        {
+          "name": "priceCentavos",
+          "type": "function"
+        },
+        {
+          "name": "MarketError",
+          "type": "class"
+        }
+      ],
+      "raw_imports": [
+        "zod"
+      ],
+      "in_degree": 2,
+      "out_degree": 1
+    },
+    {
+      "id": "scripts/import-legacy.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "timestamps",
+          "type": "function"
+        },
+        {
+          "name": "main",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "../lib/db",
+        "node:crypto",
+        "zod",
+        "drizzle-orm",
+        "node:path",
+        "../db/schema",
+        "node:fs/promises"
+      ],
+      "in_degree": 0,
+      "out_degree": 7
+    },
+    {
+      "id": "scripts/setup.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "main",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "../lib/db",
+        "node:fs",
+        "../lib/local-accounts"
+      ],
+      "in_degree": 0,
+      "out_degree": 3
+    },
+    {
+      "id": "tests/auth.test.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [
+        {
+          "name": "req",
+          "type": "function"
+        }
+      ],
+      "raw_imports": [
+        "node:assert/strict",
+        "node:test"
+      ],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": "tests/market.test.ts",
+      "type": "source",
+      "extension": ".ts",
+      "symbols": [],
+      "raw_imports": [
+        "node:assert/strict",
+        "node:test"
+      ],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": "AGENTS.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 2,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/01-superpowers-workflow.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/02-ecc-security.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/03-karpathy-heuristics.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/04-anthropic-standards.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "id": ".agents/rules/05-ponytail-minimalism.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/06-ui-ux-pro-max.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/rules/07-graphify-architecture.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/anthropic-agent-skills/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 2,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/anthropic-agent-skills/references/skill-spec.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 1
+    },
+    {
+      "id": ".agents/skills/everything-claude-code/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": ".agents/skills/everything-claude-code/references/agentshield-security.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/everything-claude-code/references/memory-and-context.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 2
+    },
+    {
+      "id": ".agents/skills/frontend-design/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/graphify/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/graphify/references/graph-querying.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/karpathy-guidelines/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/karpathy-guidelines/references/four-tenets.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/ponytail/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/ponytail/references/ladder-of-laziness.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/superpowers/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/superpowers/references/7-phases-workflow.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/superpowers/references/tdd-red-green-refactor.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/ui-ux-pro-max/SKILL.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills/ui-ux-pro-max/references/taste-heuristics.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": "docs/LOCAL-CHROME-VERIFICATION.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": "docs/MIGRATION-PLAN.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": "docs/MIGRATION.md",
+      "type": "specification",
+      "extension": ".md",
+      "symbols": [],
+      "raw_imports": [],
+      "db_tables": [],
+      "api_routes": [],
+      "agent_refs": [],
+      "in_degree": 0,
+      "out_degree": 0
+    },
+    {
+      "id": ".agents/skills.json",
+      "type": "config",
+      "extension": ".json",
+      "symbols": [
+        {
+          "name": "superpowers",
+          "type": "registered_skill"
+        },
+        {
+          "name": "everything-claude-code",
+          "type": "registered_skill"
+        },
+        {
+          "name": "karpathy-guidelines",
+          "type": "registered_skill"
+        },
+        {
+          "name": "anthropic-agent-skills",
+          "type": "registered_skill"
+        },
+        {
+          "name": "ponytail",
+          "type": "registered_skill"
+        },
+        {
+          "name": "ui-ux-pro-max",
+          "type": "registered_skill"
+        },
+        {
+          "name": "graphify",
+          "type": "registered_skill"
+        }
+      ],
+      "raw_imports": [],
+      "in_degree": 0,
+      "out_degree": 7
+    }
+  ],
+  "edges": [
+    {
+      "source": "drizzle.config.ts",
+      "target": "drizzle-kit",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-kit",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/anthropic-agent-skills/scripts/validate_skill.py",
+      "target": "os",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "os",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/anthropic-agent-skills/scripts/validate_skill.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/anthropic-agent-skills/scripts/validate_skill.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/anthropic-agent-skills/scripts/validate_skill.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/scripts/agentshield.py",
+      "target": "os",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "os",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/scripts/agentshield.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/scripts/agentshield.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/scripts/agentshield.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "datetime",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "datetime",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "json",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "json",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/graphify/scripts/graphify.py",
+      "target": "os",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "os",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/karpathy-guidelines/scripts/surgical_verify.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/karpathy-guidelines/scripts/surgical_verify.py",
+      "target": "subprocess",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "subprocess",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/karpathy-guidelines/scripts/surgical_verify.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "target": "json",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "json",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ponytail/scripts/audit_bloat.py",
+      "target": "os",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "os",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "target": "datetime",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "datetime",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "target": "json",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "json",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/superpowers/scripts/phase_tracker.py",
+      "target": "os",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "os",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ui-ux-pro-max/scripts/check_contrast.py",
+      "target": "re",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "re",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ui-ux-pro-max/scripts/check_contrast.py",
+      "target": "sys",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "sys",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/ui-ux-pro-max/scripts/check_contrast.py",
+      "target": "argparse",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "argparse",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/layout.tsx",
+      "target": "./globals.css",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "./globals.css",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/layout.tsx",
+      "target": "next",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "next",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/api/account/[action]/route.ts",
+      "target": "lib/auth.ts",
+      "relation": "IMPORTS",
+      "label": "../../../../lib/auth",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "app/api/health/route.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/api/health/route.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "../../../lib/db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "app/api/market/[...path]/route.ts",
+      "target": "@/lib/validation",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "@/lib/validation",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/api/market/[...path]/route.ts",
+      "target": "@/lib/auth",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "@/lib/auth",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/api/market/[...path]/route.ts",
+      "target": "@/lib/market",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "@/lib/market",
+      "type": "INFERRED"
+    },
+    {
+      "source": "app/api/session/route.ts",
+      "target": "lib/auth.ts",
+      "relation": "IMPORTS",
+      "label": "../../../lib/auth",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "app/[[...path]]/page.tsx",
+      "target": "components/market-app.tsx",
+      "relation": "IMPORTS",
+      "label": "../../components/market-app",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "app/[[...path]]/page.tsx",
+      "target": "react",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "react",
+      "type": "INFERRED"
+    },
+    {
+      "source": "components/market-app.tsx",
+      "target": "lucide-react",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "lucide-react",
+      "type": "INFERRED"
+    },
+    {
+      "source": "components/market-app.tsx",
+      "target": "next/navigation",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "next/navigation",
+      "type": "INFERRED"
+    },
+    {
+      "source": "components/market-app.tsx",
+      "target": "react",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "react",
+      "type": "INFERRED"
+    },
+    {
+      "source": "db/schema.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "db/schema.ts",
+      "target": "drizzle-orm/pg-core",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm/pg-core",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "node:fs",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:fs",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "lib/local-accounts.ts",
+      "relation": "IMPORTS",
+      "label": "./local-accounts",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "node:crypto",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:crypto",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "zod",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "zod",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "./db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "better-auth",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "better-auth",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "lib/validation.ts",
+      "relation": "IMPORTS",
+      "label": "./validation",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "node:path",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:path",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "better-auth/adapters/drizzle",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "better-auth/adapters/drizzle",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "db/schema.ts",
+      "relation": "IMPORTS",
+      "label": "../db/schema",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/auth.ts",
+      "target": "bcryptjs",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "bcryptjs",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "drizzle-orm/pglite",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm/pglite",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "postgres",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "postgres",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "@electric-sql/pglite",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "@electric-sql/pglite",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "node:path",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:path",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "db/schema.ts",
+      "relation": "IMPORTS",
+      "label": "../db/schema",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "drizzle-orm/postgres-js",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm/postgres-js",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/db.ts",
+      "target": "node:fs/promises",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:fs/promises",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/local-accounts.ts",
+      "target": "bcryptjs",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "bcryptjs",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/local-accounts.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/local-accounts.ts",
+      "target": "db/schema.ts",
+      "relation": "IMPORTS",
+      "label": "../db/schema",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/local-accounts.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "./db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/market.ts",
+      "target": "zod",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "zod",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/market.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "lib/market.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "./db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/market.ts",
+      "target": "lib/validation.ts",
+      "relation": "IMPORTS",
+      "label": "./validation",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/market.ts",
+      "target": "db/schema.ts",
+      "relation": "IMPORTS",
+      "label": "../db/schema",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "lib/validation.ts",
+      "target": "zod",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "zod",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "../lib/db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "node:crypto",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:crypto",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "zod",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "zod",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "drizzle-orm",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "drizzle-orm",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "node:path",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:path",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "db/schema.ts",
+      "relation": "IMPORTS",
+      "label": "../db/schema",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "scripts/import-legacy.ts",
+      "target": "node:fs/promises",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:fs/promises",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/setup.ts",
+      "target": "lib/db.ts",
+      "relation": "IMPORTS",
+      "label": "../lib/db",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "scripts/setup.ts",
+      "target": "node:fs",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:fs",
+      "type": "INFERRED"
+    },
+    {
+      "source": "scripts/setup.ts",
+      "target": "lib/local-accounts.ts",
+      "relation": "IMPORTS",
+      "label": "../lib/local-accounts",
+      "type": "EXTRACTED"
+    },
+    {
+      "source": "tests/auth.test.ts",
+      "target": "node:assert/strict",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:assert/strict",
+      "type": "INFERRED"
+    },
+    {
+      "source": "tests/auth.test.ts",
+      "target": "node:test",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:test",
+      "type": "INFERRED"
+    },
+    {
+      "source": "tests/market.test.ts",
+      "target": "node:assert/strict",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:assert/strict",
+      "type": "INFERRED"
+    },
+    {
+      "source": "tests/market.test.ts",
+      "target": "node:test",
+      "relation": "IMPORTS_EXTERNAL",
+      "label": "node:test",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/rules/04-anthropic-standards.md",
+      "target": ".agents/skills/anthropic-agent-skills/SKILL.md",
+      "relation": "REFERENCES_DOC",
+      "label": "SKILL.md",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/anthropic-agent-skills/references/skill-spec.md",
+      "target": ".agents/skills/anthropic-agent-skills/SKILL.md",
+      "relation": "REFERENCES_DOC",
+      "label": "SKILL.md",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/SKILL.md",
+      "target": "AGENTS.md",
+      "relation": "REFERENCES_DOC",
+      "label": "AGENTS.md",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/SKILL.md",
+      "target": "CLAUDE.md",
+      "relation": "REFERENCES_DOC",
+      "label": "CLAUDE.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/references/memory-and-context.md",
+      "target": "AGENTS.md",
+      "relation": "REFERENCES_DOC",
+      "label": "AGENTS.md",
+      "type": "INFERRED"
+    },
+    {
+      "source": ".agents/skills/everything-claude-code/references/memory-and-context.md",
+      "target": "CLAUDE.md",
+      "relation": "REFERENCES_DOC",
+      "label": "CLAUDE.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/superpowers/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/superpowers/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/everything-claude-code/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/everything-claude-code/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/karpathy-guidelines/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/karpathy-guidelines/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/anthropic-agent-skills/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/anthropic-agent-skills/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/ponytail/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/ponytail/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/ui-ux-pro-max/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/ui-ux-pro-max/SKILL.md",
+      "type": "UNRESOLVED"
+    },
+    {
+      "source": ".agents/skills.json",
+      "target": "./skills/graphify/SKILL.md",
+      "relation": "SKILL_REGISTRATION",
+      "label": "./skills/graphify/SKILL.md",
+      "type": "UNRESOLVED"
+    }
+  ],
+  "cycles": [],
+  "statistics": {
+    "total_files": 55,
+    "total_edges": 103,
+    "total_symbols": 120,
+    "total_db_tables": 0,
+    "total_api_routes": 0,
+    "total_agent_personas": 0,
+    "symbol_breakdown": {
+      "function": 110,
+      "class": 3,
+      "registered_skill": 7
+    },
+    "edge_types": {
+      "EXTRACTED": 18,
+      "INFERRED": 76,
+      "UNRESOLVED": 9
+    }
+  },
+  "total_files": 55,
+  "total_edges": 103
+}

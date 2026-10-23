@@ -1,0 +1,2 @@
+.agents : 33 files verified by SHA-256
+.claude : 25 files verified by SHA-256
