@@ -71,6 +71,21 @@ export async function visibility(actor: Actor, id: number, input: unknown) {
     return (await tx.update(listing).set({ ...data, stockVersion: current.stockVersion + 1, updatedAt: new Date() }).where(eq(listing.id, id)).returning())[0];
   });
 }
+export async function adjustStock(actor: Actor, id: number, input: unknown) {
+  const data = parse(z.object({ quantity: z.number().int().min(0).max(10000), stockVersion: z.number().int().min(0).optional() }), input);
+  const db = await getDb();
+  return db.transaction(async tx => {
+    const current = found((await tx.select().from(listing).where(eq(listing.id, id)).for('update'))[0]);
+    allowed(actor.role === 'seller' && current.sellerId === actor.id);
+    if (data.stockVersion !== undefined && current.stockVersion !== data.stockVersion) {
+      throw new MarketError(409, 'Stale stock edit: The listing stock was modified in another session. Please reload to see the current inventory.');
+    }
+    if (current.minimumQuantity > data.quantity && data.quantity > 0) {
+      throw new MarketError(422, 'Stock quantity cannot be less than the minimum order requirement.', { quantity: `Minimum order is ${current.minimumQuantity} units.` });
+    }
+    return (await tx.update(listing).set({ quantity: data.quantity, stockVersion: current.stockVersion + 1, updatedAt: new Date() }).where(eq(listing.id, id)).returning())[0];
+  });
+}
 export const PLATFORM_FEE_RATE_BPS = 800; // 8% Marketplace Escrow Take-Rate from Business Proposal
 export async function reserve(actor: Actor, id: number, input: unknown) {
   allowed(actor.role === 'buyer', 'A buyer account is required.'); const data = parse(reservationInput, input); const db = await getDb();
@@ -129,18 +144,19 @@ export async function workspace(actor: Actor) {
   return { orders, allOrders, platformStats, sellerStats, listings: await db.select().from(listing).where(eq(listing.sellerId, actor.id)).orderBy(desc(listing.createdAt)), sellers: actor.role === 'admin' ? await db.select(publicSeller).from(user).where(eq(user.role, 'seller')) : [], openOrderCount: orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length };
 }
 export async function updateOrder(actor: Actor, id: number, input: unknown, now = new Date()) {
-  const { action } = parse(z.object({ action: z.enum(['ship', 'receive', 'complete', 'dispute', 'cancel']) }), input); const db = await getDb();
+  const { action } = parse(z.object({ action: z.enum(['ship', 'receive', 'complete', 'dispute', 'cancel', 'resolve_dispute']) }), input); const db = await getDb();
   return db.transaction(async tx => {
     const current = found((await tx.select().from(order).where(eq(order.id, id)).for('update'))[0]);
     const stock = found((await tx.select().from(listing).where(eq(listing.id, current.listingId)))[0]);
-    const buyer = actor.id === current.buyerId; const seller = actor.id === stock.sellerId; allowed(buyer || seller);
+    const buyer = actor.id === current.buyerId; const seller = actor.id === stock.sellerId; const admin = actor.role === 'admin'; allowed(buyer || seller || admin);
     let changes: Partial<typeof order.$inferInsert> = { updatedAt: now };
     if (action === 'ship') { allowed(seller && current.status === 'reserved'); changes = { ...changes, ...parse(z.object({ courier: z.enum(['LBC', 'J&T', 'Lalamove']), trackingNumber: z.string().trim().min(1).max(100) }), input), status: 'shipped' }; }
     if (action === 'receive') { allowed(buyer && current.status === 'shipped'); changes = { ...changes, status: 'inspection', receivedAt: now }; }
     if (action === 'complete') { allowed(buyer && current.status === 'inspection'); changes.status = 'completed'; }
     if (action === 'dispute') { allowed(buyer && current.status === 'inspection' && current.receivedAt && now.getTime() <= current.receivedAt.getTime() + 72 * 3600000, 'The inspection window has closed.'); changes = { ...changes, ...parse(z.object({ dispute: z.string().trim().min(20).max(3000) }), input), status: 'disputed' }; }
+    if (action === 'resolve_dispute') { allowed((admin || seller) && current.status === 'disputed'); changes.status = 'completed'; }
     if (action === 'cancel') {
-      allowed(current.status === 'reserved');
+      allowed((buyer || seller || admin) && current.status === 'reserved');
       const locked = found((await tx.select().from(listing).where(eq(listing.id, current.listingId)).for('update'))[0]);
       await tx.update(listing).set({ quantity: locked.quantity + current.quantity, stockVersion: locked.stockVersion + 1, updatedAt: now }).where(eq(listing.id, locked.id));
       changes.status = 'cancelled';

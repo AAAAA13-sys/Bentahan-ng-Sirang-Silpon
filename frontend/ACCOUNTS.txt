@@ -1,0 +1,77 @@
+================================================================================
+SILICON TRADING (BENTAHAN NG SIRANG SILPON) — DATABASE TEST ACCOUNTS
+================================================================================
+Default Password for all accounts: Password123!
+Database Engine: PostgreSQL (PGlite Local WASM Cluster / Docker Postgres compatible)
+
+--------------------------------------------------------------------------------
+1. VERIFIED BUYER (Smartphone Repair Bench Technician)
+--------------------------------------------------------------------------------
+Email:       buyer@silicon.ph
+Password:    Password123!
+Name:        Juan Dela Cruz
+Role:        buyer
+Location:    Quiapo, Manila
+Store/Shop:  Dela Cruz Mobile Fix & Hot-Air Reballing
+Permissions: Browse listings, reserve components with 8% escrow guarantee,
+             test motherboard logic boards for 48 hours, release escrow payouts,
+             file disputes with photo/multimeter evidence.
+
+--------------------------------------------------------------------------------
+2. MASTER SELLER (Micro-Soldering & Donor Board Harvester)
+--------------------------------------------------------------------------------
+Email:       seller@silicon.ph
+Password:    Password123!
+Name:        Kuya Jhun Micro-Soldering
+Role:        seller
+Location:    Raon, Quiapo, Manila
+Store/Shop:  Kuya Jhun Chip & Board Recovery Specialist
+Permissions: Post donor boards and harvested IC chips (/sell),
+             manage active listings and inventory (/workspace),
+             dispatch reserved orders with courier waybills (Lalamove, J&T),
+             receive 92% net payouts upon buyer 48h escrow release.
+
+--------------------------------------------------------------------------------
+3. SCRAP SUPPLIER (Bulk E-Waste & Motherboard Wholesaler)
+--------------------------------------------------------------------------------
+Email:       greenhills.scrap@silicon.ph
+Password:    Password123!
+Name:        Greenhills Scrap Supplier
+Role:        seller
+Location:    Greenhills Shopping Center, San Juan City
+Store/Shop:  Greenhills Circular Hub
+Permissions: Post bulk scrap lots, salvaged OLED assemblies, Grade C/D boards.
+
+--------------------------------------------------------------------------------
+4. PERIPHERAL RECLAIM SPECIALIST (Cavite Circuit Recovery)
+--------------------------------------------------------------------------------
+Email:       marktech.cavite@silicon.ph
+Password:    Password123!
+Name:        Mark Tech Circuit Recovery
+Role:        seller
+Location:    Bacoor, Cavite
+Store/Shop:  Cavite Reclaim Station
+Permissions: Donor logic boards, flex cables, and PMIC salvaged modules.
+
+--------------------------------------------------------------------------------
+5. PLATFORM ESCROW OFFICER (Admin & Dispute Arbiter)
+--------------------------------------------------------------------------------
+Email:       admin@silicon.ph
+Password:    Password123!
+Name:        Silicon Trading Administrator
+Role:        admin
+Location:    Pasig City, Metro Manila
+Permissions: Arbitrate contested escrow transactions, inspect diagnostics sheets,
+             force release or refund escrow deposits, audit platform ledger.
+
+================================================================================
+LEGACY COMPATIBILITY CREDENTIALS:
+--------------------------------------------------------------------------------
+Email:       kuya.jhun@gmail.com
+Password:    password123
+Role:        seller (Kuya Jhun Pasig Harvester)
+
+Email:       juan.repair@gmail.com
+Password:    password123
+Role:        buyer (Juan Manila Tech)
+================================================================================

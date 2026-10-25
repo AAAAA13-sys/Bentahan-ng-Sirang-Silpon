@@ -21,6 +21,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     if (!Number.isSafeInteger(id) || id < 1) throw new MarketError(404, 'Record not found.');
     if (method === 'PUT' && resource === 'listings' && path.length === 2) return Response.json({ listing: await market.updateListing(actor, id, input) });
     if (method === 'PATCH' && resource === 'listings' && operation === 'visibility' && path.length === 3) return Response.json({ listing: await market.visibility(actor, id, input) });
+    if (method === 'PATCH' && resource === 'listings' && operation === 'stock' && path.length === 3) return Response.json({ listing: await market.adjustStock(actor, id, input) });
     if (method === 'POST' && resource === 'parts' && operation === 'reserve' && path.length === 3) return Response.json({ order: await market.reserve(actor, id, input) });
     if (method === 'POST' && resource === 'orders' && path.length === 2) return Response.json({ order: await market.updateOrder(actor, id, input) });
     throw new MarketError(404, 'Endpoint not found.');

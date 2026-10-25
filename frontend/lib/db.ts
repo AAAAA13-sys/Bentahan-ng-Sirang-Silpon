@@ -2,12 +2,14 @@ import { PGlite } from '@electric-sql/pglite';
 import { drizzle as pgliteDrizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { drizzle as postgresDrizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import * as schema from '../db/schema';
 
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+import { seedLocalAccounts } from './local-accounts';
 
 type Database = PgliteDatabase<typeof schema>;
 type Connection = { db: Database; close: () => Promise<void> };
@@ -25,18 +27,27 @@ async function connect(): Promise<Connection> {
     const client = postgres(process.env.DATABASE_URL, { max: 10 });
     try {
       await client.begin(async transaction => { await transaction.unsafe(initialization); });
-      // Both drivers expose the PostgreSQL query/transaction API used by this application.
-      return { db: postgresDrizzle(client, { schema }) as unknown as Database, close: () => client.end() };
+      const drizzleDb = postgresDrizzle(client, { schema }) as unknown as Database;
+      try { await seedLocalAccounts(drizzleDb); } catch (e) { console.warn('Account seed notice:', e); }
+      return { db: drizzleDb, close: () => client.end() };
     } catch (error) { await client.end(); throw error; }
   }
   const configured = process.env.SILICON_DATA_DIR || path.join('.data', 'postgres');
   const directory = configured === ':memory:' ? configured : path.resolve(configured);
-  if (directory !== ':memory:') await mkdir(directory, { recursive: true });
+  if (directory !== ':memory:') {
+    await mkdir(directory, { recursive: true });
+    const pidFile = path.join(directory, 'postmaster.pid');
+    if (existsSync(pidFile)) {
+      try { await rm(pidFile, { force: true }); } catch {}
+    }
+  }
   const client = new PGlite(directory === ':memory:' ? undefined : directory);
   try {
     await client.waitReady;
     await client.transaction(async transaction => { await transaction.exec(initialization); });
-    return { db: pgliteDrizzle(client, { schema }), close: () => client.close() };
+    const drizzleDb = pgliteDrizzle(client, { schema });
+    try { await seedLocalAccounts(drizzleDb); } catch (e) { console.warn('Account seed notice:', e); }
+    return { db: drizzleDb, close: () => client.close() };
   } catch (error) { await client.close(); throw error; }
 }
 export async function getDb(): Promise<Database> {

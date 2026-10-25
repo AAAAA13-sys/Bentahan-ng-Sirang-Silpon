@@ -197,6 +197,22 @@ app.patch('/api/market/listings/:id/visibility', async (req: ExpRequest, res: Ex
   }
 });
 
+// Adjust Listing Stock (Seller)
+app.patch('/api/market/listings/:id/stock', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id < 1) throw new MarketError(404, 'Record not found.');
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const listing = await market.adjustStock(actor, id, req.body);
+    res.json({ listing });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Reserve Part (Buyer)
 app.post('/api/market/parts/:id/reserve', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
   try {
@@ -280,7 +296,9 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'test') {
+const isDirectRun = process.argv[1] ? (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js')) : false;
+
+if (isDirectRun && process.env.NODE_ENV !== 'test') {
   startServer().catch(err => {
     console.error('Failed to start backend server:', err);
     process.exit(1);

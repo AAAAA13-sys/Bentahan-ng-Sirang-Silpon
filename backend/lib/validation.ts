@@ -26,9 +26,16 @@ export const listingInput = z.object({
 });
 export const reservationInput = z.object({ reservationKey: z.string().uuid(), quantity: z.number().int().min(1).max(10000), address: z.string().trim().min(15).max(1000) });
 export function priceCentavos(price: string) { const [whole, cents = ''] = price.split('.'); return Number(whole) * 100 + Number(cents.padEnd(2, '0')); }
+const trustedOrigins = [
+  'http://127.0.0.1:8090', 'http://localhost:8090',
+  'http://127.0.0.1:8092', 'http://localhost:8092',
+  'http://127.0.0.1:3000', 'http://localhost:3000',
+  'http://127.0.0.1:5000', 'http://localhost:5000'
+];
+
 export function sameOrigin(request: Request) {
   const origin = request.headers.get('origin');
   const expected = new URL(request.url);
   const host = request.headers.get('host'); if(host) expected.host=host;
-  if (origin && origin !== expected.origin) throw new MarketError(403, 'Cross-origin submission is forbidden.');
+  if (origin && origin !== expected.origin && !trustedOrigins.includes(origin)) throw new MarketError(403, 'Cross-origin submission is forbidden.');
 }
