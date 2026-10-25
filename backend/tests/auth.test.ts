@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+delete process.env.DATABASE_URL;
+process.env.SILICON_DATA_DIR=':memory:';
+process.env.BETTER_AUTH_SECRET='isolated-test-secret-not-for-real-sessions-12345';
+test('email/password preserves Laravel hashes and prevents account role escalation', async()=>{
+ const { initializeDatabase, getDb, closeDatabase }=await import('../lib/db');
+ const { user,account }=await import('../db/schema');
+ const { hash }=await import('bcryptjs');
+ const { getAuth,handleAccount,currentUser }=await import('../lib/auth');
+ await initializeDatabase(); const db=await getDb();
+ const password='LegacyPassword2026';
+ await db.insert(user).values({id:'legacy',name:'Legacy Buyer',email:'legacy@test.invalid',role:'buyer'});
+ await db.insert(account).values({id:'legacy-credential',accountId:'legacy',providerId:'credential',userId:'legacy',password:(await hash(password,10)).replace('$2b$','$2y$')});
+ const req=(action:string,body:unknown)=>new Request('http://127.0.0.1:8092/api/account/'+action,{method:'POST',headers:{'content-type':'application/json','origin':'http://127.0.0.1:8092'},body:JSON.stringify(body)});
+ const login=await handleAccount(req('login',{email:'legacy@test.invalid',password}),'login'); assert.equal(login.status,200);
+ const data = (await login.json()) as any; assert.equal(data.user.id,'legacy'); assert.equal(data.token,undefined);
+ const cookie=login.headers.getSetCookie().map(c=>c.split(';')[0]).join('; '); assert.ok(cookie.includes('session_token'));
+ assert.equal((await currentUser(new Request('http://127.0.0.1:8092/api/session',{headers:{cookie}})))?.id,'legacy');
+ const bad=await handleAccount(req('register',{name:'Attacker',email:'admin@test.invalid',password,passwordConfirmation:password,role:'admin',location:'Pasig'}),'register'); assert.equal(bad.status,422);
+ const registration=await handleAccount(req('register',{name:'New Seller',email:'new@test.invalid',password,passwordConfirmation:password,role:'seller',location:'Pasig',sellerVerified:true}),'register'); assert.equal(registration.status,200);
+ const registered = (await registration.json()) as any; assert.equal(registered.user.role,'seller'); assert.equal(registered.user.sellerVerified,false);
+ const wrong=await handleAccount(req('login',{email:'legacy@test.invalid',password:'bad-password'}),'login'); assert.equal(wrong.status,401);
+ const logout=await handleAccount(new Request('http://127.0.0.1:8092/api/account/logout',{method:'POST',headers:{cookie}}),'logout'); assert.equal(logout.status,200);
+ assert.equal(await currentUser(new Request('http://127.0.0.1:8092/api/session',{headers:{cookie}})),null);
+ const {seedLocalAccounts,localUsernameEmail}=await import('../lib/local-accounts');
+ await seedLocalAccounts(); await seedLocalAccounts();
+ for(const [username,role]of [['user1','buyer'],['user2','seller'],['user3','admin']]){const response=await handleAccount(req('login',{email:username,password:'1234'}),'login');assert.equal(response.status,200);assert.equal(((await response.json()) as any).user.role,role);}
+ assert.equal(localUsernameEmail('user1',new Request('https://example.com')),'user1');
+ const weakSignup=await handleAccount(req('register',{name:'Weak Buyer',email:'weak@test.invalid',password:'1234',passwordConfirmation:'1234',role:'buyer',location:'Pasig'}),'register');assert.equal(weakSignup.status,422);
+ await closeDatabase();
+});

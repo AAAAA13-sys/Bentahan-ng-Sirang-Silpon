@@ -1,8 +1,0 @@
-node_modules/
-.next/
-.data/
-.env*
-*.tsbuildinfo
-
-.playwright-cli/
-output/
