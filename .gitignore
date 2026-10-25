@@ -1,8 +1,6 @@
 node_modules/
 .next/
 .data/
-tsconfig.tsbuildinfo
 scratch/
+tsconfig.tsbuildinfo
 *.log
-.env
-.env.local
