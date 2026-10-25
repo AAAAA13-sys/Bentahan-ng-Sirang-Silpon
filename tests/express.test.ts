@@ -117,6 +117,22 @@ test('Express application mounts all required endpoints and enforces constraints
     });
     assert.equal(staleUpdateRes.status, 409);
 
+    // 8b. PATCH /api/market/listings/:id/stock (Adjust stock quantity)
+    const adjustStockRes = await fetch(`${baseUrl}/api/market/listings/${listingId}/stock`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'origin': `http://127.0.0.1:${port}`,
+        cookie: sellerCookie
+      },
+      body: JSON.stringify({
+        quantity: 10
+      })
+    });
+    assert.equal(adjustStockRes.status, 200);
+    const adjustedJson = (await adjustStockRes.json()) as any;
+    assert.equal(adjustedJson.listing.quantity, 10);
+
     // 9. Login as Buyer (user1)
     const buyerLoginRes = await fetch(`${baseUrl}/api/account/login`, {
       method: 'POST',
@@ -183,6 +199,45 @@ test('Express application mounts all required endpoints and enforces constraints
     assert.equal(shipRes.status, 200);
     const shippedOrder = (await shipRes.json()) as any;
     assert.equal(shippedOrder.order.status, 'shipped');
+
+    // 13b. Buyer receives and files dispute
+    const receiveRes = await fetch(`${baseUrl}/api/market/orders/${orderId}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': `http://127.0.0.1:${port}`,
+        cookie: buyerCookie
+      },
+      body: JSON.stringify({ action: 'receive' })
+    });
+    assert.equal(receiveRes.status, 200);
+
+    const disputeRes = await fetch(`${baseUrl}/api/market/orders/${orderId}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': `http://127.0.0.1:${port}`,
+        cookie: buyerCookie
+      },
+      body: JSON.stringify({ action: 'dispute', dispute: 'Display cable connector is corroded and missing solder pads.' })
+    });
+    assert.equal(disputeRes.status, 200);
+    const disputedOrder = (await disputeRes.json()) as any;
+    assert.equal(disputedOrder.order.status, 'disputed');
+
+    // 13c. Seller resolves dispute
+    const resolveRes = await fetch(`${baseUrl}/api/market/orders/${orderId}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'origin': `http://127.0.0.1:${port}`,
+        cookie: sellerCookie
+      },
+      body: JSON.stringify({ action: 'resolve_dispute' })
+    });
+    assert.equal(resolveRes.status, 200);
+    const resolvedOrder = (await resolveRes.json()) as any;
+    assert.equal(resolvedOrder.order.status, 'completed');
 
     // 14. Admin seller verification toggle
     const adminLoginRes = await fetch(`${baseUrl}/api/account/login`, {
