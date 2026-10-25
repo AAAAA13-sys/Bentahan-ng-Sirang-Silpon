@@ -280,7 +280,9 @@ async function startServer() {
   });
 }
 
-if (process.env.NODE_ENV !== 'test') {
+const isDirectRun = process.argv[1] ? (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js')) : false;
+
+if (isDirectRun && process.env.NODE_ENV !== 'test') {
   startServer().catch(err => {
     console.error('Failed to start backend server:', err);
     process.exit(1);
