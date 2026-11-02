@@ -38,7 +38,7 @@ export const cartCheckoutInput = z.object({
   items: z.array(z.object({
     listingId: z.number().int().min(1),
     quantity: z.number().int().min(1).max(10000),
-    reservationKey: z.string().uuid()
+    reservationKey: z.string().uuid().optional().default(() => crypto.randomUUID())
   })).min(1).max(50),
   address: z.string().trim().min(15).max(1000),
   courier: z.enum(['LBC', 'J&T', 'Lalamove']).optional().default('Lalamove'),

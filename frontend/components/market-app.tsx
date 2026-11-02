@@ -1,6 +1,5 @@
 'use client';
-import type { AnchorHTMLAttributes } from 'react';
-function Link(props: AnchorHTMLAttributes<HTMLAnchorElement>) { return <a {...props} />; }
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
@@ -147,7 +146,7 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
     credentials: 'include',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
-    cache: 'no-store',
+    cache: method === 'GET' ? 'default' : 'no-store',
   });
   const data = await response.json().catch(() => ({ error: 'The server returned an unreadable response.' }));
   if (!response.ok) {
@@ -156,17 +155,27 @@ async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   return data;
 }
 
+const remoteCache = new Map<string, { data: unknown; timestamp: number }>();
+
 function useRemote<T>(url: string) {
-  const [data, setData] = useState<T | null>(null);
+  const cached = remoteCache.get(url);
+  const [data, setData] = useState<T | null>(cached ? (cached.data as T) : null);
   const [error, setError] = useState('');
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let active = true;
     setError('');
+    const cachedEntry = remoteCache.get(url);
+    if (cachedEntry) {
+      setData(cachedEntry.data as T);
+    }
     api<T>(url)
       .then(v => {
-        if (active) setData(v);
+        if (active) {
+          setData(v);
+          remoteCache.set(url, { data: v, timestamp: Date.now() });
+        }
       })
       .catch(e => {
         if (active) setError(e.message);
@@ -176,7 +185,14 @@ function useRemote<T>(url: string) {
     };
   }, [url, version]);
 
-  return { data, error, reload: () => setVersion(x => x + 1) };
+  return {
+    data,
+    error,
+    reload: () => {
+      remoteCache.delete(url);
+      setVersion(x => x + 1);
+    }
+  };
 }
 
 function Remote({
@@ -236,11 +252,21 @@ function Art({
   );
 }
 
-function Heading({ title, text, children }: { title: string; text?: string; children?: ReactNode }) {
+function Heading({
+  title,
+  text,
+  eyebrow = 'SILICON TRADING / THE WORKBENCH',
+  children,
+}: {
+  title: string;
+  text?: string;
+  eyebrow?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="page-heading heading-row">
       <div>
-        <span className="eyebrow">SILICON TRADING / THE WORKBENCH</span>
+        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
         <h1>{title}</h1>
         {text && <p>{text}</p>}
       </div>
@@ -352,14 +378,27 @@ function highlightMatch(text?: string | null, query?: string | null) {
   );
 }
 
-function Card({ listing: l, onAddToCart, query }: { listing: Listing; onAddToCart?: (l: Listing) => void; query?: string | null }) {
+function Card({
+  listing: l,
+  onAddToCart,
+  onRemoveFromCart,
+  query,
+  inCartQuantity = 0,
+}: {
+  listing: Listing;
+  onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (listingId: number) => void;
+  query?: string | null;
+  inCartQuantity?: number;
+}) {
   const isTested = l.condition === 'Tested working';
   const isHarvest = l.condition === 'For harvesting';
   const condBg = isTested ? 'rgba(5, 150, 105, 0.92)' : isHarvest ? 'rgba(217, 119, 6, 0.92)' : 'rgba(37, 99, 235, 0.92)';
   const cleanGrade = l.boardClass ? l.boardClass.replace(/ \([^)]*\)/g, '') : '';
+  const inCart = inCartQuantity > 0;
 
   return (
-    <div className="product-card" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className={`product-card ${inCart ? 'in-cart' : ''}`} style={{ display: 'flex', flexDirection: 'column' }}>
       <Link href={`/parts/${l.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
         <div className="product-art">
           <span className="condition" style={{ background: condBg, color: '#ffffff', border: 'none' }}>
@@ -367,6 +406,11 @@ function Card({ listing: l, onAddToCart, query }: { listing: Listing; onAddToCar
           </span>
           {cleanGrade && <span className="board-class-tag">{cleanGrade}</span>}
           {l.minimumQuantity > 1 && <span className="bulk-tag">MIN. {l.minimumQuantity} PCS</span>}
+          {inCart && (
+            <span className="in-cart-badge">
+              <Check size={11} strokeWidth={3} /> IN CART ({inCartQuantity})
+            </span>
+          )}
           {l.verifiedPass && (
             <span className="verified-pass-badge" style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 2 }}>
               <CheckCircle size={11} /> VERIFIED PASS
@@ -404,25 +448,52 @@ function Card({ listing: l, onAddToCart, query }: { listing: Listing; onAddToCar
       </Link>
       {onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
         <div style={{ padding: '0 16px 14px', marginTop: 'auto' }}>
-          <button
-            type="button"
-            className="card-cart-btn"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onAddToCart(l);
-            }}
-          >
-            <ShoppingCart size={14} /> Add to Cart
-          </button>
+          {inCart ? (
+            <button
+              type="button"
+              className="card-cart-btn in-cart-remove"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onRemoveFromCart) {
+                  onRemoveFromCart(l.id);
+                }
+              }}
+            >
+              <Trash2 size={14} /> Remove from Cart
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="card-cart-btn"
+              style={{ width: '100%', justifyContent: 'center' }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToCart(l);
+              }}
+            >
+              <ShoppingCart size={14} /> Add to Cart
+            </button>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: Listing) => void }) {
+function Home({
+  user,
+  onAddToCart,
+  onRemoveFromCart,
+  cart = [],
+}: {
+  user: User | null;
+  onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (id: number) => void;
+  cart?: CartItem[];
+}) {
   const remote = useRemote<{ listings: Listing[]; total: number }>('/api/market/catalog');
   return (
     <>
@@ -525,7 +596,13 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
         <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
           <div className="product-grid">
             {remote.data?.listings.slice(0, 8).map(l => (
-              <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
+              <Card
+                key={l.id}
+                listing={l}
+                onAddToCart={onAddToCart}
+                onRemoveFromCart={onRemoveFromCart}
+                inCartQuantity={cart.find(c => c.listingId === l.id)?.quantity || 0}
+              />
             ))}
           </div>
           {remote.data?.listings.length === 0 && (
@@ -562,7 +639,15 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
 
 
 
-function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
+function Catalog({
+  onAddToCart,
+  onRemoveFromCart,
+  cart = [],
+}: {
+  onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (listingId: number) => void;
+  cart?: CartItem[];
+}) {
   const params = useSearchParams();
   const query = params.toString();
   const isBulkCategory = params.get('category') === 'Bulk lots';
@@ -722,7 +807,14 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
             </div>
             <div className="product-grid catalog-products">
               {remote.data?.listings.map(l => (
-                <Card key={l.id} listing={l} onAddToCart={onAddToCart} query={params.get('q')} />
+                <Card
+                  key={l.id}
+                  listing={l}
+                  onAddToCart={onAddToCart}
+                  onRemoveFromCart={onRemoveFromCart}
+                  query={params.get('q')}
+                  inCartQuantity={cart.find(c => c.listingId === l.id)?.quantity || 0}
+                />
               ))}
             </div>
             {remote.data?.listings.length === 0 && (
@@ -874,12 +966,22 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
     return (
       <div className="container auth-gate-container">
         <div className="auth-gate-card">
-          <span className="eyebrow"><ShieldAlert size={13} /> SELLER ACCESS REQUIRED</span>
-          <h2>A seller account is required.</h2>
-          <p>Your current account cannot manage or publish component listings.</p>
+          <span className="eyebrow"><ShieldAlert size={13} /> SELLER ACCESS ONLY</span>
+          <h2>Seller Account Required</h2>
+          <p>
+            You are signed in as <strong>{user.name}</strong> with a <strong style={{ textTransform: 'capitalize' }}>{user.role}</strong> account.
+            Listing donor logic boards and salvaged microchips requires a verified Seller account.
+          </p>
           <div className="auth-gate-actions">
-            <Link className="button outline-primary" href="/workspace">Return to workspace</Link>
-            <Link className="button subtle-ghost" href="/marketplace">Browse components</Link>
+            <Link className="button outline-primary" href="/marketplace">
+              Browse components ↗
+            </Link>
+            <Link className="button subtle-ghost" href="/workspace">
+              Buyer procurement hub
+            </Link>
+            <Link className="button subtle-ghost" href="/login">
+              Switch account
+            </Link>
           </div>
         </div>
       </div>
@@ -888,8 +990,21 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
   return <>{children}</>;
 }
 
-function Detail({ id, user, onAddToCart }: { id: string; user: User | null; onAddToCart?: (l: Listing) => void }) {
+function Detail({
+  id,
+  user,
+  onAddToCart,
+  onRemoveFromCart,
+  cart = [],
+}: {
+  id: string;
+  user: User | null;
+  onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (listingId: number) => void;
+  cart?: CartItem[];
+}) {
   const remote = useRemote<{ listing: Listing }>(`/api/market/parts/${id}`);
+  const inCartQty = cart.find(c => String(c.listingId) === String(id))?.quantity || 0;
   return (
     <div className="container">
       <div className="breadcrumbs">
@@ -902,6 +1017,8 @@ function Detail({ id, user, onAddToCart }: { id: string; user: User | null; onAd
             user={user}
             onListingReload={remote.reload}
             onAddToCart={onAddToCart}
+            onRemoveFromCart={onRemoveFromCart}
+            inCartQuantity={inCartQty}
           />
         )}
       </Remote>
@@ -1134,11 +1251,15 @@ function DetailContent({
   user,
   onListingReload,
   onAddToCart,
+  onRemoveFromCart,
+  inCartQuantity = 0,
 }: {
   listing: Listing;
   user: User | null;
   onListingReload: () => void;
   onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (listingId: number) => void;
+  inCartQuantity?: number;
 }) {
   const router = useRouter();
   const [macroOpen, setMacroOpen] = useState(false);
@@ -1307,14 +1428,32 @@ function DetailContent({
           </div>
 
           {onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
-            <button
-              type="button"
-              className="button outline full"
-              style={{ marginTop: '16px' }}
-              onClick={() => onAddToCart(l)}
-            >
-              <ShoppingCart size={15} /> Add to Parts Cart
-            </button>
+            <div style={{ marginTop: '16px' }}>
+              {inCartQuantity > 0 && (
+                <div className="detail-in-cart-pill">
+                  <Check size={14} strokeWidth={2.5} />
+                  <span>Already in parts cart: <strong>{inCartQuantity} unit(s)</strong></span>
+                </div>
+              )}
+              {inCartQuantity > 0 ? (
+                <button
+                  type="button"
+                  className="button outline full in-cart-remove"
+                  style={{ marginTop: '8px' }}
+                  onClick={() => onRemoveFromCart && onRemoveFromCart(l.id)}
+                >
+                  <Trash2 size={15} /> Remove from Parts Cart
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button outline full"
+                  onClick={() => onAddToCart(l)}
+                >
+                  <ShoppingCart size={15} /> Add to Parts Cart
+                </button>
+              )}
+            </div>
           )}
 
           {!user ? (
@@ -1636,8 +1775,27 @@ function Workspace({ user }: { user: User }) {
   return (
     <div className="container">
       <Heading
-        title={`Your workbench, ${user.name.split(' ')[0]}.`}
-        text={`${user.role.charAt(0).toUpperCase() + user.role.slice(1)} workspace · Philippine circular electronics trading.`}
+        eyebrow={
+          user.role === 'buyer'
+            ? 'SILICON TRADING / BUYER PROCUREMENT'
+            : user.role === 'seller'
+            ? 'SILICON TRADING / SELLER WORKBENCH'
+            : 'SILICON TRADING / PLATFORM ADMINISTRATION'
+        }
+        title={
+          user.role === 'buyer'
+            ? `Your procurement hub, ${user.name.split(' ')[0]}.`
+            : user.role === 'seller'
+            ? `Your workbench, ${user.name.split(' ')[0]}.`
+            : `Platform administration, ${user.name.split(' ')[0]}.`
+        }
+        text={
+          user.role === 'buyer'
+            ? 'Buyer workspace · Monitor component reservations, courier waybills, and 72-hour escrow inspection windows.'
+            : user.role === 'seller'
+            ? 'Seller workspace · Manage harvested donor boards, component inventory, stock levels, and payout ledger.'
+            : 'Administrator overview · Circular electronics volume, escrow settlements, and platform revenues.'
+        }
       />
 
       {conflictMsg && (
@@ -1770,11 +1928,70 @@ function Workspace({ user }: { user: User }) {
           </section>
         )}
 
+        {/* Buyer Procurement Metrics */}
+        {user.role === 'buyer' && (
+          <section className="workspace-section">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">BUYER PROCUREMENT METRICS</span>
+                <h2>Your Sourcing Overview</h2>
+              </div>
+              <Link href="/marketplace" className="button dark small">
+                <Compass size={14} /> Browse Reclaimed Parts ↗
+              </Link>
+            </div>
+            <div className="workspace-stats four">
+              <article>
+                <span>TOTAL PROCURED</span>
+                <strong className="green">
+                  {money(
+                    remote.data?.orders
+                      .filter(o => o.status !== 'cancelled')
+                      .reduce((sum, o) => sum + o.totalCentavos, 0) ?? 0
+                  )}
+                </strong>
+                <p>Value of active &amp; completed orders</p>
+              </article>
+              <article>
+                <span>IN TRANSIT / ESCROW</span>
+                <strong>
+                  {remote.data?.orders.filter(o => ['reserved', 'shipped', 'inspection'].includes(o.status)).length ?? 0}
+                </strong>
+                <p>Pending courier &amp; 72h check</p>
+              </article>
+              <article>
+                <span>COMPLETED ORDERS</span>
+                <strong>
+                  {remote.data?.orders.filter(o => o.status === 'completed').length ?? 0}
+                </strong>
+                <p>Inspected &amp; escrow released</p>
+              </article>
+              <article>
+                <span>MEMBER TIER</span>
+                <strong style={{ textTransform: 'uppercase' }}>{user.tier || 'Starter'}</strong>
+                <p>
+                  <Link
+                    href="/account#membership-tiers"
+                    style={{ color: 'var(--green)', fontSize: '12px', textDecoration: 'underline' }}
+                  >
+                    View tiers &amp; perks ↗
+                  </Link>
+                </p>
+              </article>
+            </div>
+          </section>
+        )}
+
         {/* Orders (Buyer & Seller) */}
         {user.role !== 'admin' && (
           <section className="workspace-section">
             <div className="section-heading">
-              <h2>{user.role === 'seller' ? 'Customer orders' : 'Your orders'}</h2>
+              <div>
+                <h2>{user.role === 'seller' ? 'Customer orders' : 'Your component requisitions & orders'}</h2>
+                <span className="muted" style={{ fontSize: '13px' }}>
+                  {user.role === 'seller' ? 'Fulfill orders and dispatch tracking numbers' : 'Reserved logic boards and microchip shipments'}
+                </span>
+              </div>
               <span>{remote.data?.openOrderCount ?? 0} open</span>
             </div>
             {remote.data?.orders.length ? (
@@ -1825,8 +2042,12 @@ function Workspace({ user }: { user: User }) {
               </div>
             ) : (
               <div className="empty">
-                <h3>A clean workbench.</h3>
-                <p>Your orders will appear here when a component is reserved.</p>
+                <h3>{user.role === 'seller' ? 'A clean workbench.' : 'No component requisitions yet.'}</h3>
+                <p>
+                  {user.role === 'seller'
+                    ? 'Your orders will appear here when a component is reserved.'
+                    : 'When you reserve donor boards or tested microchips, your orders and tracking details appear here.'}
+                </p>
                 {user.role === 'buyer' && (
                   <Link className="button outline" href="/marketplace">Find components ↗</Link>
                 )}
@@ -3041,6 +3262,7 @@ function CartPage({
         items: cart.map(item => ({
           listingId: item.listingId,
           quantity: item.quantity,
+          reservationKey: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'c9bf9e57-1685-4c89-bafb-ff5af830be8a',
         })),
         address: address.trim(),
         courier,
@@ -3112,12 +3334,25 @@ function CartPage({
                 <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>
                   Seller: <strong>{item.sellerName}</strong>
                 </div>
-                <div className="cart-item-price">
-                  {money(item.priceCentavos)} <span style={{ fontSize: '11px', color: 'var(--muted)' }}>/ unit</span>
+                <div className="cart-item-price-wrap">
+                  <div className="cart-item-unit-price">
+                    {money(item.priceCentavos)} <span style={{ fontSize: '11px', color: 'var(--muted)' }}>/ unit</span>
+                  </div>
+                  <div className="cart-item-total-badge">
+                    <span className="cart-total-tag-label">Subtotal:</span>{' '}
+                    <strong className="cart-total-tag-price">{money(item.priceCentavos * item.quantity)}</strong>
+                    {item.quantity > 1 && (
+                      <span className="cart-total-tag-calc"> ({item.quantity} × {money(item.priceCentavos)})</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="cart-item-actions">
+                <div className="cart-item-action-subtotal">
+                  <span className="action-subtotal-label">Total Value</span>
+                  <span className="action-subtotal-val">{money(item.priceCentavos * item.quantity)}</span>
+                </div>
                 <div className="cart-qty-stepper">
                   <button
                     type="button"
@@ -3293,7 +3528,15 @@ function CartPage({
   );
 }
 
-function VerifiedPassPage({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
+function VerifiedPassPage({
+  onAddToCart,
+  onRemoveFromCart,
+  cart = [],
+}: {
+  onAddToCart?: (l: Listing) => void;
+  onRemoveFromCart?: (listingId: number) => void;
+  cart?: CartItem[];
+}) {
   const remote = useRemote<{ listings: Listing[]; total: number }>('/api/market/catalog?verified=1');
 
   return (
@@ -3385,7 +3628,13 @@ function VerifiedPassPage({ onAddToCart }: { onAddToCart?: (l: Listing) => void 
         <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
           <div className="product-grid">
             {remote.data?.listings.map(l => (
-              <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
+              <Card
+                key={l.id}
+                listing={l}
+                onAddToCart={onAddToCart}
+                onRemoveFromCart={onRemoveFromCart}
+                inCartQuantity={cart.find(c => c.listingId === l.id)?.quantity || 0}
+              />
             ))}
           </div>
           {remote.data?.listings.length === 0 && (
@@ -3810,6 +4059,23 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
 
   const activeTier = user.tier || 'starter';
 
+  useEffect(() => {
+    function scrollToTiers() {
+      if (typeof window !== 'undefined' && (window.location.hash === '#membership-tiers' || window.location.hash === '#tiers')) {
+        const el = document.getElementById('membership-tiers');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+    const timer = setTimeout(scrollToTiers, 120);
+    window.addEventListener('hashchange', scrollToTiers);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('hashchange', scrollToTiers);
+    };
+  }, []);
+
   async function handleProfileSave(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -3914,6 +4180,17 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
         <aside className="panel">
           <h3>Quick Workbench Links</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+            <a
+              className="button outline full"
+              href="#membership-tiers"
+              onClick={e => {
+                e.preventDefault();
+                document.getElementById('membership-tiers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                window.history.pushState(null, '', '#membership-tiers');
+              }}
+            >
+              <Award size={15} /> B2B Membership Tiers ↗
+            </a>
             <Link className="button outline full" href="/orders">
               <Package size={15} /> View My Orders ↗
             </Link>
@@ -3930,7 +4207,12 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
         </aside>
       </div>
 
-      <section className="section" style={{ marginTop: '36px' }}>
+      <section
+        id="membership-tiers"
+        className="section"
+        style={{ marginTop: '36px', scrollMarginTop: '100px' }}
+      >
+        <div id="tiers" style={{ position: 'relative', top: '-100px' }} />
         <div className="section-heading">
           <div>
             <span className="eyebrow">PACKAGE 3: REPAIR SHOP PROCUREMENT</span>
@@ -4026,23 +4308,24 @@ export default function MarketApp() {
   const [logoutBusy, setLogoutBusy] = useState(false);
 
   // Silicon Trading Cart State with LocalStorage Persistence
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('silicon_trading_cart');
-        return stored ? JSON.parse(stored) : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartLoaded, setCartLoaded] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('silicon_trading_cart');
+      if (stored) {
+        setCart(JSON.parse(stored));
+      }
+    } catch {}
+    setCartLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (cartLoaded) {
       localStorage.setItem('silicon_trading_cart', JSON.stringify(cart));
     }
-  }, [cart]);
+  }, [cart, cartLoaded]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -4181,9 +4464,9 @@ export default function MarketApp() {
   const isCompanySection = pathname === '/about' || pathname === '/how-it-works' || pathname === '/support';
 
   if (pathname === '/') {
-    content = <Home user={user} onAddToCart={addToCart} />;
+    content = <Home user={user} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (pathname === '/marketplace') {
-    content = <Catalog onAddToCart={addToCart} />;
+    content = <Catalog onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (pathname === '/how-it-works' || pathname === '/about') {
     content = <About />;
   } else if (isCart) {
@@ -4197,7 +4480,7 @@ export default function MarketApp() {
       />
     );
   } else if (isVerifiedPass) {
-    content = <VerifiedPassPage onAddToCart={addToCart} />;
+    content = <VerifiedPassPage onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (isOrders) {
     content = <OrdersPage user={user} />;
   } else if (isSupport) {
@@ -4211,7 +4494,7 @@ export default function MarketApp() {
   } else if (pathname === '/login' || pathname === '/register') {
     content = <Auth key={pathname} register={pathname === '/register'} onAuth={setUser} />;
   } else if (part && !part[2]) {
-    content = <Detail id={part[1]} user={user} onAddToCart={addToCart} />;
+    content = <Detail id={part[1]} user={user} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (pathname === '/workspace' || pathname === '/sell' || part?.[2] || order) {
     content = !ready ? (
       <div className="container empty" role="status">Checking your session…</div>
@@ -4313,7 +4596,7 @@ export default function MarketApp() {
           <Link href="/cart" className="cart-nav-button" aria-label="Parts Cart">
             <ShoppingCart size={16} />
             <span>Cart</span>
-            {cartItemCount > 0 && <span className="cart-badge">{cartItemCount}</span>}
+            {cartLoaded && cartItemCount > 0 && <span className="cart-badge">{cartItemCount}</span>}
           </Link>
 
           {user ? (
@@ -4329,21 +4612,70 @@ export default function MarketApp() {
                   <UserIcon size={13} />
                 </span>
                 <span className="user-name-text">{user.name.split(' ')[0]}</span>
-                <span className="user-role-badge">{user.role}</span>
+                <span className={`user-role-badge role-${user.role}`}>{user.role}</span>
                 <ChevronDown size={13} className={`nav-chevron ${openMenu === 'user' ? 'open' : ''}`} />
               </button>
               {openMenu === 'user' && (
                 <div className="user-dropdown-menu">
                   <div className="user-menu-header">
-                    <div className="user-menu-name">{user.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <div className="user-menu-name">{user.name}</div>
+                      <span className={`user-role-badge role-${user.role}`}>{user.role}</span>
+                    </div>
                     <div className="user-menu-email">{user.email}</div>
                   </div>
-                  <Link href="/workspace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
-                    My Workspace Ledger
-                  </Link>
-                  <Link href="/account" className="user-menu-item" onClick={() => setOpenMenu(null)}>
-                    Account &amp; Tiers
-                  </Link>
+                  {user.role === 'seller' ? (
+                    <>
+                      <Link href="/workspace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Seller Workbench
+                      </Link>
+                      <Link href="/sell" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Post a Component Listing
+                      </Link>
+                      <Link href="/orders" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Customer Orders
+                      </Link>
+                      <Link href="/account#membership-tiers" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        B2B Membership Tiers
+                      </Link>
+                      <Link href="/account" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Account Settings
+                      </Link>
+                    </>
+                  ) : user.role === 'admin' ? (
+                    <>
+                      <Link href="/workspace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Platform Administration
+                      </Link>
+                      <Link href="/orders" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        All Platform Orders
+                      </Link>
+                      <Link href="/account#membership-tiers" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        B2B Membership Tiers
+                      </Link>
+                      <Link href="/account" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Account Settings
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/workspace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Buyer Procurement Hub
+                      </Link>
+                      <Link href="/orders" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        My Orders &amp; Tracking
+                      </Link>
+                      <Link href="/marketplace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Browse Marketplace
+                      </Link>
+                      <Link href="/account#membership-tiers" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        B2B Membership Tiers
+                      </Link>
+                      <Link href="/account" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                        Account Settings
+                      </Link>
+                    </>
+                  )}
                   <div className="user-menu-divider" />
                   <button
                     type="button"
@@ -4367,13 +4699,28 @@ export default function MarketApp() {
             </Link>
           )}
 
-          <Link
-            href={!user || user.role === 'seller' ? '/sell' : '/workspace'}
-            className="start-selling-btn"
-          >
-            <span>Start Selling</span>
-            <ArrowUpRight size={15} />
-          </Link>
+          {/* Role-tailored Primary CTA button */}
+          {!user ? (
+            <Link href="/sell" className="start-selling-btn">
+              <span>Start Selling</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          ) : user.role === 'seller' ? (
+            <Link href="/sell" className="start-selling-btn">
+              <span>Post Listing</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          ) : user.role === 'admin' ? (
+            <Link href="/workspace" className="start-selling-btn">
+              <span>Admin Desk</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          ) : (
+            <Link href="/marketplace" className="start-selling-btn">
+              <span>Browse Parts</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          )}
 
           <button
             type="button"
@@ -4424,8 +4771,41 @@ export default function MarketApp() {
               <span className="mobile-section-title">Account</span>
               {user ? (
                 <>
-                  <Link href="/workspace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
-                    My Workspace ({user.role.toUpperCase()})
+                  <div style={{ padding: '6px 12px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--ink)' }}>{user.name}</span>
+                    <span className={`user-role-badge role-${user.role}`}>{user.role}</span>
+                  </div>
+                  {user.role === 'seller' ? (
+                    <>
+                      <Link href="/workspace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        Seller Workbench
+                      </Link>
+                      <Link href="/sell" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        Post a Listing
+                      </Link>
+                      <Link href="/orders" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        Customer Orders
+                      </Link>
+                    </>
+                  ) : user.role === 'admin' ? (
+                    <Link href="/workspace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                      Platform Administration
+                    </Link>
+                  ) : (
+                    <>
+                      <Link href="/workspace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        Buyer Procurement Hub
+                      </Link>
+                      <Link href="/orders" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        My Orders &amp; Tracking
+                      </Link>
+                      <Link href="/marketplace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                        Browse Marketplace
+                      </Link>
+                    </>
+                  )}
+                  <Link href="/account#membership-tiers" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                    B2B Membership Tiers
                   </Link>
                   <Link href="/account" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
                     Account Settings
@@ -4438,7 +4818,7 @@ export default function MarketApp() {
                       logout();
                     }}
                   >
-                    Log out ({user.name})
+                    Log out ({user.name.split(' ')[0]})
                   </button>
                 </>
               ) : (
@@ -4448,14 +4828,43 @@ export default function MarketApp() {
               )}
             </div>
 
-            <Link
-              href={!user || user.role === 'seller' ? '/sell' : '/workspace'}
-              className="start-selling-btn mobile-sell-btn"
-              onClick={() => setOpenMenu(null)}
-            >
-              <span>Start Selling</span>
-              <ArrowUpRight size={15} />
-            </Link>
+            {!user ? (
+              <Link
+                href="/sell"
+                className="start-selling-btn mobile-sell-btn"
+                onClick={() => setOpenMenu(null)}
+              >
+                <span>Start Selling</span>
+                <ArrowUpRight size={15} />
+              </Link>
+            ) : user.role === 'seller' ? (
+              <Link
+                href="/sell"
+                className="start-selling-btn mobile-sell-btn"
+                onClick={() => setOpenMenu(null)}
+              >
+                <span>Post Listing</span>
+                <ArrowUpRight size={15} />
+              </Link>
+            ) : user.role === 'admin' ? (
+              <Link
+                href="/workspace"
+                className="start-selling-btn mobile-sell-btn"
+                onClick={() => setOpenMenu(null)}
+              >
+                <span>Admin Desk</span>
+                <ArrowUpRight size={15} />
+              </Link>
+            ) : (
+              <Link
+                href="/marketplace"
+                className="start-selling-btn mobile-sell-btn"
+                onClick={() => setOpenMenu(null)}
+              >
+                <span>Browse Parts</span>
+                <ArrowUpRight size={15} />
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -4496,9 +4905,13 @@ export default function MarketApp() {
             <Link href="/orders">Orders &amp; Waybills</Link>
             <Link href="/cart">Parts Cart</Link>
             <Link href={user ? '/workspace' : '/register'}>
-              {user ? 'My Workspace Ledger' : 'Join as Buyer / Seller'}
+              {user ? (user.role === 'seller' ? 'Seller Workbench' : user.role === 'buyer' ? 'Buyer Procurement Hub' : 'Platform Administration') : 'Join as Buyer / Seller'}
             </Link>
-            <Link href="/sell">Publish Component Listing</Link>
+            {!user || user.role === 'seller' ? (
+              <Link href="/sell">Publish Component Listing</Link>
+            ) : (
+              <Link href="/marketplace">Browse Component Catalog</Link>
+            )}
           </div>
 
           <div>

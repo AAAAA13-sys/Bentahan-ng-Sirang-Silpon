@@ -4853,6 +4853,161 @@ tbody tr:hover {
   background: var(--red-light);
 }
 
+/* Cart Item Individual Total Value & Breakdown */
+.cart-item-price-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.cart-item-unit-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.cart-item-total-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.cart-total-tag-label {
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.cart-total-tag-price {
+  color: #34d399;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cart-total-tag-calc {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cart-item-action-subtotal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+  margin-bottom: 2px;
+}
+
+.action-subtotal-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.action-subtotal-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+  font-weight: 800;
+  color: #34d399;
+}
+
+@media (max-width: 640px) {
+  .cart-item-action-subtotal {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* In-Cart Visual Cues across Marketplace */
+.product-card.in-cart {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.12) !important;
+}
+
+.in-cart-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  background: #10b981;
+  color: #042419;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.card-cart-btn.in-cart {
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+  color: #34d399 !important;
+  font-weight: 700 !important;
+}
+
+.card-cart-btn.in-cart:hover {
+  background: rgba(16, 185, 129, 0.28) !important;
+  border-color: #10b981 !important;
+  color: #ffffff !important;
+}
+
+.card-cart-btn.in-cart-remove {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  font-weight: 600 !important;
+}
+
+.card-cart-btn.in-cart-remove:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.button.in-cart-remove {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  font-weight: 600 !important;
+}
+
+.button.in-cart-remove:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.detail-in-cart-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-md);
+  color: #34d399;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
 /* Cart Checkout Summary Box */
 .cart-summary-box {
   background: var(--surface);
@@ -4982,6 +5137,10 @@ tbody tr:hover {
 }
 
 /* Pricing Grid for Verified Pass & B2B Tiers */
+#membership-tiers {
+  scroll-margin-top: 100px;
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -5065,7 +5224,16 @@ tbody tr:hover {
 
 /* Orders Page UI */
 .orders-page {
-  margin: 24px 0;
+  margin: 32px auto 60px !important;
+  max-width: 1080px !important;
+  width: min(1080px, calc(100% - 48px)) !important;
+  box-sizing: border-box !important;
+}
+
+.orders-gate-container {
+  margin-inline: auto !important;
+  max-width: 1080px !important;
+  width: 100% !important;
 }
 
 .orders-nav-tabs {
