@@ -21,6 +21,9 @@ test('email/password preserves Laravel hashes and prevents account role escalati
  const registration=await handleAccount(req('register',{name:'New Seller',email:'new@test.invalid',password,passwordConfirmation:password,role:'seller',location:'Pasig',sellerVerified:true}),'register'); assert.equal(registration.status,200);
  const registered = (await registration.json()) as any; assert.equal(registered.user.role,'seller'); assert.equal(registered.user.sellerVerified,false);
  const wrong=await handleAccount(req('login',{email:'legacy@test.invalid',password:'bad-password'}),'login'); assert.equal(wrong.status,401);
+ const upgrade=await handleAccount(new Request('http://127.0.0.1:8092/api/account/profile',{method:'POST',headers:{'content-type':'application/json','origin':'http://127.0.0.1:8092',cookie},body:JSON.stringify({role:'seller'})}),'profile');
+ assert.equal(upgrade.status,200);
+ assert.equal(((await upgrade.json()) as any).user.role,'seller');
  const logout=await handleAccount(new Request('http://127.0.0.1:8092/api/account/logout',{method:'POST',headers:{cookie}}),'logout'); assert.equal(logout.status,200);
  assert.equal(await currentUser(new Request('http://127.0.0.1:8092/api/session',{headers:{cookie}})),null);
  const {seedLocalAccounts,localUsernameEmail}=await import('../lib/local-accounts');

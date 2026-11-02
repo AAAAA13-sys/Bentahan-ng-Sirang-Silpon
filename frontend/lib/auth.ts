@@ -46,9 +46,11 @@ export async function handleAccount(request:Request,action:string):Promise<Respo
      name:z.string().trim().min(2).max(100).optional(),
      location:z.string().trim().max(120).optional(),
      phone:z.string().trim().max(30).optional(),
-     tier:z.enum(['starter','pro','enterprise']).optional()
+     tier:z.enum(['starter','pro','enterprise']).optional(),
+     role:z.enum(['buyer','seller']).optional()
    });
    const updateData=parse(profileSchema, body);
+   if(actor.role==='admin' && updateData.role) delete updateData.role;
    const db=await getDb();
    await db.update(schema.user).set({ ...updateData, updatedAt: new Date() }).where(eq(schema.user.id, actor.id));
    const [u]=await db.select().from(schema.user).where(eq(schema.user.id, actor.id));

@@ -870,7 +870,9 @@ function Auth({ register, onAuth }: { register: boolean; onAuth: (u: User) => vo
           ? `/parts/${encodeURIComponent(part)}`
           : params.get('next') === '/sell' && user.role === 'seller'
           ? '/sell'
-          : '/workspace'
+          : user.role === 'seller'
+          ? '/workspace'
+          : '/marketplace'
       );
     } catch (e) {
       setError((e as Error).message);
@@ -917,9 +919,13 @@ function Auth({ register, onAuth }: { register: boolean; onAuth: (u: User) => vo
                 autoComplete="new-password"
               />
               <Field label="Location" name="location" maxLength={150} />
-              <Field label="I’m here to" name="role">
-                <option value="buyer">Buy components</option>
-                <option value="seller">Sell components</option>
+              <Field
+                label="Account Type / Primary Activity"
+                name="role"
+                defaultValue={params.get('role') === 'seller' || params.get('next') === '/sell' ? 'seller' : 'buyer'}
+              >
+                <option value="buyer">Buy components (Sourcing logic boards &amp; IC chips)</option>
+                <option value="seller">Sell components (Listing donor motherboards &amp; harvested ICs)</option>
               </Field>
               <p className="muted">
                 Use a strong password with at least 8 characters, uppercase and lowercase letters, a number and a symbol.
@@ -941,8 +947,34 @@ function Auth({ register, onAuth }: { register: boolean; onAuth: (u: User) => vo
   );
 }
 
-function Gate({ user, role, children }: { user: User | null; role?: string; children: ReactNode }) {
+function Gate({
+  user,
+  role,
+  children,
+  onUserUpdate,
+}: {
+  user: User | null;
+  role?: string;
+  children: ReactNode;
+  onUserUpdate?: (u: User) => void;
+}) {
   const pathname = usePathname();
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState('');
+
+  async function handleUpgrade() {
+    setUpgrading(true);
+    setUpgradeError('');
+    try {
+      const { user: updated } = await api<{ user: User }>('/api/account/profile', 'POST', { role: 'seller' });
+      if (onUserUpdate) onUserUpdate(updated);
+    } catch (e) {
+      setUpgradeError((e as Error).message || 'Failed to upgrade account.');
+    } finally {
+      setUpgrading(false);
+    }
+  }
+
   if (!user) {
     return (
       <div className="container auth-gate-container">
@@ -951,7 +983,7 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
           <h2>Your workbench awaits.</h2>
           <p>Sign in to access your private ledger, component listings, and transaction orders.</p>
           <div className="auth-gate-actions">
-            <Link className="button outline-primary" href={`/login${pathname === '/sell' ? '?next=/sell' : ''}`}>
+            <Link className="button outline-primary" href={`/login${pathname === '/sell' ? '?next=/sell' : pathname === '/cart' ? '?next=/cart' : ''}`}>
               Sign in to your account ↗
             </Link>
             <Link className="button subtle-ghost" href="/marketplace">
@@ -963,18 +995,51 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
     );
   }
   if (role && user.role !== role) {
+    if (role === 'buyer') {
+      return (
+        <div className="container auth-gate-container">
+          <div className="auth-gate-card">
+            <span className="eyebrow"><ShoppingCart size={13} /> BUYER ACCESS ONLY</span>
+            <h2>Buyer Account Required</h2>
+            <p>
+              You are signed in as <strong>{user.name}</strong> with a <strong style={{ textTransform: 'capitalize' }}>{user.role}</strong> account.
+              The shopping cart and component reservations are exclusive to Buyer accounts.
+            </p>
+            <div className="auth-gate-actions">
+              <Link className="button outline-primary" href="/workspace">
+                Go to Workspace
+              </Link>
+              <Link className="button subtle-ghost" href="/marketplace">
+                Browse components
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="container auth-gate-container">
         <div className="auth-gate-card">
-          <span className="eyebrow"><ShieldAlert size={13} /> SELLER ACCESS ONLY</span>
+          <span className="eyebrow"><ShieldAlert size={13} /> SELLER ACCESS REQUIRED</span>
           <h2>Seller Account Required</h2>
           <p>
             You are signed in as <strong>{user.name}</strong> with a <strong style={{ textTransform: 'capitalize' }}>{user.role}</strong> account.
-            Listing donor logic boards and salvaged microchips requires a verified Seller account.
+            Listing donor logic boards and salvaged microchips requires a Seller account.
           </p>
+          {upgradeError && <p style={{ color: 'var(--red)', fontSize: '13px' }}>{upgradeError}</p>}
           <div className="auth-gate-actions">
+            {user.role === 'buyer' && (
+              <button
+                type="button"
+                className="button dark"
+                disabled={upgrading}
+                onClick={handleUpgrade}
+              >
+                {upgrading ? 'Upgrading account…' : 'Upgrade this account to Seller ↗'}
+              </button>
+            )}
             <Link className="button outline-primary" href="/marketplace">
-              Browse components ↗
+              Browse components
             </Link>
             <Link className="button subtle-ghost" href="/workspace">
               Buyer procurement hub
@@ -1427,7 +1492,7 @@ function DetailContent({
             </div>
           </div>
 
-          {onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
+          {user?.role === 'buyer' && onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
             <div style={{ marginTop: '16px' }}>
               {inCartQuantity > 0 && (
                 <div className="detail-in-cart-pill">
@@ -2053,6 +2118,24 @@ function Workspace({ user }: { user: User }) {
                 )}
               </div>
             )}
+          </section>
+        )}
+
+        {/* Buyer Become a Seller Banner */}
+        {user.role === 'buyer' && (
+          <section className="section" style={{ marginTop: '28px', padding: '24px', background: 'var(--surface-alt)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <span className="eyebrow" style={{ color: 'var(--green)' }}>CIRCULAR MONETIZATION</span>
+                <h3 style={{ margin: '4px 0 6px' }}>Have donor motherboards or salvage IC chips to sell?</h3>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', maxWidth: '620px' }}>
+                  Upgrade to a Seller Workbench anytime. Connect salvaged logic boards with repair shops and technicians across the Philippines.
+                </p>
+              </div>
+              <Link href="/account" className="button dark small">
+                Upgrade to Seller in Settings ↗
+              </Link>
+            </div>
           </section>
         )}
 
@@ -4076,6 +4159,23 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
     };
   }, []);
 
+  async function handleUpgradeToSeller() {
+    setBusy(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { user: updated } = await api<{ user: User }>('/api/account/profile', 'POST', {
+        role: 'seller',
+      });
+      onUserUpdate(updated);
+      setSuccess('Congratulations! Your account has been upgraded to Seller. You can now access the Seller Workbench and post listings.');
+    } catch (e) {
+      setError((e as Error).message || 'Failed to upgrade to seller.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleProfileSave(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -4165,15 +4265,36 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
           </form>
 
           <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
-            <h4>Account Verification Status</h4>
+            <h4>Account Verification &amp; Role</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
               <span className={`status ${user.sellerVerified ? 'status-completed' : 'status-reserved'}`}>
                 {user.sellerVerified ? '✓ Verified Technician' : 'Standard Member'}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                Role: <strong>{user.role.toUpperCase()}</strong>
+                Current Role: <strong>{user.role.toUpperCase()}</strong>
               </span>
             </div>
+
+            {user.role === 'buyer' && (
+              <div style={{ marginTop: '20px', padding: '16px 18px', background: 'var(--surface-alt)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                  <div>
+                    <strong style={{ display: 'block', fontSize: '14px', color: 'var(--ink)' }}>Ready to sell salvaged parts?</strong>
+                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--muted)', maxWidth: '480px' }}>
+                      Upgrade your account to a Seller Workbench to list donor motherboards, test chips, and dispatch shipments.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="button dark"
+                    onClick={handleUpgradeToSeller}
+                  >
+                    {busy ? 'Upgrading…' : 'Become a Seller ↗'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -4300,6 +4421,7 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
 }
 
 export default function MarketApp() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
@@ -4307,25 +4429,40 @@ export default function MarketApp() {
   const [sessionError, setSessionError] = useState('');
   const [logoutBusy, setLogoutBusy] = useState(false);
 
-  // Silicon Trading Cart State with LocalStorage Persistence
+  // Silicon Trading Cart State with LocalStorage Persistence (Buyer accounts only)
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartLoaded, setCartLoaded] = useState(false);
 
   useEffect(() => {
+    if (!ready) return;
+    if (!user || user.role !== 'buyer') {
+      setCart([]);
+      setCartLoaded(true);
+      try {
+        localStorage.removeItem('silicon_trading_cart');
+      } catch {}
+      return;
+    }
     try {
-      const stored = localStorage.getItem('silicon_trading_cart');
+      const stored = localStorage.getItem(`silicon_trading_cart_${user.id}`);
       if (stored) {
         setCart(JSON.parse(stored));
+      } else {
+        setCart([]);
       }
-    } catch {}
+    } catch {
+      setCart([]);
+    }
     setCartLoaded(true);
-  }, []);
+  }, [user, ready]);
 
   useEffect(() => {
-    if (cartLoaded) {
-      localStorage.setItem('silicon_trading_cart', JSON.stringify(cart));
+    if (cartLoaded && user && user.role === 'buyer') {
+      try {
+        localStorage.setItem(`silicon_trading_cart_${user.id}`, JSON.stringify(cart));
+      } catch {}
     }
-  }, [cart, cartLoaded]);
+  }, [cart, cartLoaded, user]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -4335,6 +4472,14 @@ export default function MarketApp() {
   }
 
   function addToCart(listing: Listing, qty = 1) {
+    if (!user) {
+      router.push(`/login?part=${listing.id}`);
+      return;
+    }
+    if (user.role !== 'buyer') {
+      showToast('Parts Cart is reserved for buyer accounts.');
+      return;
+    }
     setCart(prev => {
       const existing = prev.find(item => item.listingId === listing.id);
       const addQty = Math.max(listing.minimumQuantity, qty);
@@ -4385,6 +4530,14 @@ export default function MarketApp() {
 
   function clearCart() {
     setCart([]);
+    if (user) {
+      try {
+        localStorage.removeItem(`silicon_trading_cart_${user.id}`);
+      } catch {}
+    }
+    try {
+      localStorage.removeItem('silicon_trading_cart');
+    } catch {}
   }
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -4408,6 +4561,15 @@ export default function MarketApp() {
     setLogoutBusy(true);
     try {
       await api('/api/account/logout', 'POST', {});
+      if (user) {
+        try {
+          localStorage.removeItem(`silicon_trading_cart_${user.id}`);
+        } catch {}
+      }
+      try {
+        localStorage.removeItem('silicon_trading_cart');
+      } catch {}
+      setCart([]);
       setUser(null);
       window.location.assign('/');
     } catch (e) {
@@ -4464,23 +4626,25 @@ export default function MarketApp() {
   const isCompanySection = pathname === '/about' || pathname === '/how-it-works' || pathname === '/support';
 
   if (pathname === '/') {
-    content = <Home user={user} onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
+    content = <Home user={user} onAddToCart={user?.role === 'buyer' ? addToCart : undefined} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (pathname === '/marketplace') {
-    content = <Catalog onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
+    content = <Catalog onAddToCart={user?.role === 'buyer' ? addToCart : undefined} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (pathname === '/how-it-works' || pathname === '/about') {
     content = <About />;
   } else if (isCart) {
     content = (
-      <CartPage
-        cart={cart}
-        user={user}
-        onUpdateQuantity={updateCartQuantity}
-        onRemove={removeFromCart}
-        onClear={clearCart}
-      />
+      <Gate user={user} role="buyer">
+        <CartPage
+          cart={cart}
+          user={user}
+          onUpdateQuantity={updateCartQuantity}
+          onRemove={removeFromCart}
+          onClear={clearCart}
+        />
+      </Gate>
     );
   } else if (isVerifiedPass) {
-    content = <VerifiedPassPage onAddToCart={addToCart} onRemoveFromCart={removeFromCart} cart={cart} />;
+    content = <VerifiedPassPage onAddToCart={user?.role === 'buyer' ? addToCart : undefined} onRemoveFromCart={removeFromCart} cart={cart} />;
   } else if (isOrders) {
     content = <OrdersPage user={user} />;
   } else if (isSupport) {
@@ -4499,7 +4663,7 @@ export default function MarketApp() {
     content = !ready ? (
       <div className="container empty" role="status">Checking your session…</div>
     ) : (
-      <Gate user={user} role={pathname === '/sell' || part?.[2] ? 'seller' : undefined}>
+      <Gate user={user} role={pathname === '/sell' || part?.[2] ? 'seller' : undefined} onUserUpdate={setUser}>
         {user &&
           (pathname === '/workspace' ? (
             <Workspace user={user} />
@@ -4591,13 +4755,15 @@ export default function MarketApp() {
           </div>
         </nav>
 
-        {/* Right Cluster: Cart, Sign In / Profile, Solid CTA */}
+        {/* Right Cluster: Cart (Buyers only), Sign In / Profile, Solid CTA */}
         <div className="header-actions">
-          <Link href="/cart" className="cart-nav-button" aria-label="Parts Cart">
-            <ShoppingCart size={16} />
-            <span>Cart</span>
-            {cartLoaded && cartItemCount > 0 && <span className="cart-badge">{cartItemCount}</span>}
-          </Link>
+          {user?.role === 'buyer' && (
+            <Link href="/cart" className="cart-nav-button" aria-label="Parts Cart">
+              <ShoppingCart size={16} />
+              <span>Cart</span>
+              {cartLoaded && cartItemCount > 0 && <span className="cart-badge">{cartItemCount}</span>}
+            </Link>
+          )}
 
           {user ? (
             <div className="user-dropdown">
