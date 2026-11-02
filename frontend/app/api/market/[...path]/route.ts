@@ -6,9 +6,9 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
   try {
     const { path } = await context.params; const [resource, rawId, operation] = path;
     const method = request.method; const url = new URL(request.url);
+    if (method === 'GET' && resource === 'catalog' && path.length === 1) return Response.json(await market.catalog(url.searchParams));
     if (method !== 'GET') sameOrigin(request);
     const actor = await currentUser(request);
-    if (method === 'GET' && resource === 'catalog' && path.length === 1) return Response.json(await market.catalog(url.searchParams));
     const id = Number(rawId);
     if (method === 'GET' && resource === 'parts' && path.length === 2 && Number.isSafeInteger(id) && id > 0) return Response.json({ listing: await market.getListing(id, actor) });
     if (!actor) throw new MarketError(401, 'Sign in to continue.');

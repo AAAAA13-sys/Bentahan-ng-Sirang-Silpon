@@ -6,9 +6,10 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   Cpu, Search, ShieldCheck, ShieldAlert, Truck, Recycle, ArrowUpRight, Camera,
   Monitor, Package, Plus, CheckCircle2, AlertTriangle, Clock, RefreshCw, X, ZoomIn,
-  Sun, Moon, ArrowRight, UserCheck, Shield, Layers, ArrowLeft, MapPin, Copy, Check, ExternalLink,
+  ArrowRight, UserCheck, Shield, Layers, ArrowLeft, MapPin, Copy, Check, ExternalLink,
   Database, ShoppingCart, ShoppingBag, Trash2, Tag, HelpCircle, FileText, Sparkles, Percent, Award,
-  Ticket, MessageSquare, Settings, CheckCircle, Filter, Phone, Mail, Users, Compass
+  Ticket, MessageSquare, Settings, CheckCircle, Filter, Phone, Mail, Users, Compass,
+  ChevronDown, User as UserIcon, LogOut, Menu
 } from 'lucide-react';
 
 type User = {
@@ -394,10 +395,10 @@ function Card({ listing: l, onAddToCart, query }: { listing: Listing; onAddToCar
             <span className="circle-link">↗</span>
           </div>
           <div className="seller-line">
-            <span>
-              {l.seller.name} {l.seller.sellerVerified && <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓</span>}
+            <span className="seller-name">
+              {l.seller.name} {l.seller.sellerVerified && <span className="seller-verified-badge">✓</span>}
             </span>
-            <span>{l.quantity} in stock</span>
+            <span className="seller-stock">{l.quantity} in stock</span>
           </div>
         </div>
       </Link>
@@ -425,7 +426,8 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
   const remote = useRemote<{ listings: Listing[]; total: number }>('/api/market/catalog');
   return (
     <>
-      <section className="hero container">
+      <div className="hero-fold">
+        <section className="hero container">
         <div className="hero-copy">
           <span className="eyebrow">
             <span className="live-dot" />THE FUTURE IS RECLAIMED
@@ -433,6 +435,9 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
           <h1>
             Good parts.<br />New possibilities<span className="green">.</span>
           </h1>
+          <h2 className="hero-subhead">
+            A part for every possibility<span className="green">.</span>
+          </h2>
           <p>
             The next great repair starts with what’s already here. Discover reclaimed smartphone motherboards, donor logic boards, and micro-soldering IC chips across the Philippines.
           </p>
@@ -442,7 +447,7 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
             className="hero-search"
             onClick={(e) => {
               const input = e.currentTarget.querySelector('input');
-              if (input && e.target !== input && !(e.target as HTMLElement).closest('button')) {
+              if (input && e.target !== input && !(e.target as HTMLElement).closest('button') && !(e.target as HTMLElement).closest('a')) {
                 input.focus();
               }
             }}
@@ -458,7 +463,12 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
               maxLength={100}
               className="hero-search-input"
             />
-            <button type="submit" className="button green-bg">Find parts ↗</button>
+            <div className="hero-search-actions">
+              <button type="submit" className="button green-bg">Find parts ↗</button>
+              <Link href="/marketplace" className="hero-explore-link">
+                Explore marketplace ↗
+              </Link>
+            </div>
           </form>
           <div className="hero-tags">
             <span>Popular searches</span>
@@ -494,37 +504,15 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
         </div>
       </section>
 
-      <div className="trust-strip">
-        <div className="container trust-items">
-          <span><ShieldCheck /> Seller verification</span>
-          <span><Cpu /> IC & storage graded</span>
-          <span><Truck /> Seller-arranged shipping</span>
-          <span><Recycle /> Built for circular tech</span>
+        <div className="trust-strip">
+          <div className="container trust-items">
+            <span><ShieldCheck /> Seller verification</span>
+            <span><Cpu /> IC & storage graded</span>
+            <span><Truck /> Seller-arranged shipping</span>
+            <span><Recycle /> Built for circular tech</span>
+          </div>
         </div>
       </div>
-
-      <section className="container section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">FIND YOUR NEXT FIX</span>
-            <h2>A part for every possibility.</h2>
-          </div>
-          <Link className="inline-link" href="/marketplace">Explore marketplace ↗</Link>
-        </div>
-        <div className="category-grid">
-          {categories.map((c, i) => {
-            const Icon = [Cpu, Cpu, Monitor, Camera, Package][i];
-            return (
-              <Link className="category-card" href={`/marketplace?category=${encodeURIComponent(c)}`} key={c}>
-                <span className="category-icon"><Icon /></span>
-                <h3>{c}</h3>
-                <span>{['The starting point.', 'Small but essential.', 'A fresh perspective.', 'Bring focus back.', 'More parts. More potential.'][i]}</span>
-                <b>↗</b>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
 
       <section className="container section">
         <div className="section-heading">
@@ -572,128 +560,7 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
   );
 }
 
-const deviceCompatibilityDatabase: Record<string, {
-  models: {
-    name: string;
-    chassis: string;
-    boardRev: string;
-    pmic: string;
-    audio: string;
-    baseband: string;
-  }[];
-}> = {
-  Apple: {
-    models: [
-      { name: 'iPhone 13', chassis: 'A2633, A2482', boardRev: '820-02106', pmic: 'PM3003A', audio: '338S00617', baseband: 'Qualcomm SDX60M' },
-      { name: 'iPhone 12', chassis: 'A2403, A2172', boardRev: '820-01997', pmic: 'PM3002A', audio: '338S00537', baseband: 'Qualcomm SDX55M' },
-      { name: 'iPhone 11', chassis: 'A2221, A2111', boardRev: '820-01509', pmic: 'PM3001A', audio: '338S00509', baseband: 'Intel XMM7660' },
-      { name: 'iPhone XR', chassis: 'A2105, A1984', boardRev: '820-01004', pmic: 'PM3000A', audio: '338S00411', baseband: 'Intel XMM7560' },
-    ],
-  },
-  Samsung: {
-    models: [
-      { name: 'Galaxy S21 5G', chassis: 'SM-G991B, SM-G991U', boardRev: 'REV 0.8', pmic: 'S2MPS21 / MAX77705', audio: 'CS35L41', baseband: 'Exynos 2100 / Snapdragon 888' },
-      { name: 'Galaxy S20 FE', chassis: 'SM-G780F, SM-G781B', boardRev: 'REV 0.4', pmic: 'S2MPS19', audio: 'CS35L40', baseband: 'Exynos 990 / X55' },
-      { name: 'Galaxy A52', chassis: 'SM-A525F, SM-A526B', boardRev: 'REV 0.3', pmic: 'PM6150 / PM6150L', audio: 'WCD9370', baseband: 'Snapdragon 720G / 750G' },
-    ],
-  },
-  Xiaomi: {
-    models: [
-      { name: 'Redmi Note 11', chassis: '2201117TG', boardRev: 'V1.2', pmic: 'PM6125 / PMI632', audio: 'WCD9375', baseband: 'Snapdragon 680' },
-      { name: 'POCO X3 Pro', chassis: 'M2102J20SG', boardRev: 'V1.0', pmic: 'PM8150 / PM8150B', audio: 'WCD9340', baseband: 'Snapdragon 860' },
-      { name: 'Redmi Note 10 Pro', chassis: 'M2101K6G', boardRev: 'REV 0.7', pmic: 'PM7150 / PM7150L', audio: 'WCD9385', baseband: 'Snapdragon 732G' },
-    ],
-  },
-  OPPO: {
-    models: [
-      { name: 'Reno 6 5G', chassis: 'CPH2251', boardRev: 'VER 1.1', pmic: 'MT6359P', audio: 'AW88194', baseband: 'MediaTek Dimensity 900' },
-      { name: 'A54', chassis: 'CPH2239', boardRev: 'VER 1.0', pmic: 'MT6357CRV', audio: 'AW87339', baseband: 'MediaTek Helio P35' },
-    ],
-  },
-  Vivo: {
-    models: [
-      { name: 'Y20', chassis: 'V2029', boardRev: 'V01', pmic: 'PM439 / PMI632', audio: 'WCD9326', baseband: 'Snapdragon 460' },
-      { name: 'V21 5G', chassis: 'V2050', boardRev: 'V02', pmic: 'MT6359W', audio: 'AW88194', baseband: 'MediaTek Dimensity 800U' },
-    ],
-  },
-};
 
-function CompatibilityChecker() {
-  const [selectedBrand, setSelectedBrand] = useState('Apple');
-  const [selectedModel, setSelectedModel] = useState('iPhone 13');
-
-  const models = deviceCompatibilityDatabase[selectedBrand]?.models || [];
-  const currentMatch = models.find(m => m.name === selectedModel) || models[0];
-
-  return (
-    <div className="compatibility-widget">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-        <Cpu size={18} color="var(--green)" />
-        <h3 style={{ margin: 0, fontSize: '16px' }}>Interactive Device Compatibility Lookup</h3>
-      </div>
-      <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--muted)' }}>
-        Match chassis revision codes and IC chips before harvesting or soldering to ensure 100% pinout alignment.
-      </p>
-
-      <div className="compatibility-form">
-        <label>
-          Brand
-          <select
-            value={selectedBrand}
-            onChange={e => {
-              const b = e.target.value;
-              setSelectedBrand(b);
-              const firstM = deviceCompatibilityDatabase[b]?.models[0]?.name;
-              if (firstM) setSelectedModel(firstM);
-            }}
-          >
-            {Object.keys(deviceCompatibilityDatabase).map(b => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Model
-          <select
-            value={selectedModel}
-            onChange={e => setSelectedModel(e.target.value)}
-          >
-            {models.map(m => (
-              <option key={m.name} value={m.name}>{m.name}</option>
-            ))}
-          </select>
-        </label>
-
-        <div>
-          <Link
-            className="button dark small"
-            href={`/marketplace?q=${encodeURIComponent(selectedModel)}`}
-            style={{ height: '42px', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
-          >
-            <Search size={14} /> Find in Marketplace ↗
-          </Link>
-        </div>
-      </div>
-
-      {currentMatch && (
-        <div className="compat-result-card">
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
-              {selectedBrand} {currentMatch.name} · Board Rev: {currentMatch.boardRev}
-            </div>
-            <div className="compat-tags">
-              <span className="compat-pill">Chassis: {currentMatch.chassis}</span>
-              <span className="compat-pill">PMIC: {currentMatch.pmic}</span>
-              <span className="compat-pill">Audio: {currentMatch.audio}</span>
-              <span className="compat-pill">Baseband: {currentMatch.baseband}</span>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
   const params = useSearchParams();
@@ -829,7 +696,7 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
                 value="1"
                 defaultChecked={params.get('verified') === '1'}
               />
-              Verified sellers only
+              <span>Verified sellers only</span>
             </label>
             <label className="checkbox">
               <input
@@ -838,7 +705,7 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
                 value="1"
                 defaultChecked={params.get('verifiedPass') === '1'}
               />
-              Verified Pass IC Certified
+              <span>Verified Pass IC Certified</span>
             </label>
             <button className="button dark full">Apply filters</button>
           </form>
@@ -986,19 +853,35 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
   const pathname = usePathname();
   if (!user) {
     return (
-      <div className="container">
-        <Heading title="Your workbench awaits." text="Log in to access your private marketplace workspace." />
-        <Link className="button dark" href={`/login${pathname === '/sell' ? '?next=/sell' : ''}`}>
-          Log in ↗
-        </Link>
+      <div className="container auth-gate-container">
+        <div className="auth-gate-card">
+          <span className="eyebrow"><Cpu size={13} /> SILICON TRADING / THE WORKBENCH</span>
+          <h2>Your workbench awaits.</h2>
+          <p>Sign in to access your private ledger, component listings, and transaction orders.</p>
+          <div className="auth-gate-actions">
+            <Link className="button outline-primary" href={`/login${pathname === '/sell' ? '?next=/sell' : ''}`}>
+              Sign in to your account ↗
+            </Link>
+            <Link className="button subtle-ghost" href="/marketplace">
+              Browse components
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
   if (role && user.role !== role) {
     return (
-      <div className="container">
-        <Heading title="A seller account is required." text="Your current account cannot manage component listings." />
-        <Link className="button dark" href="/workspace">My workspace</Link>
+      <div className="container auth-gate-container">
+        <div className="auth-gate-card">
+          <span className="eyebrow"><ShieldAlert size={13} /> SELLER ACCESS REQUIRED</span>
+          <h2>A seller account is required.</h2>
+          <p>Your current account cannot manage or publish component listings.</p>
+          <div className="auth-gate-actions">
+            <Link className="button outline-primary" href="/workspace">Return to workspace</Link>
+            <Link className="button subtle-ghost" href="/marketplace">Browse components</Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -3523,10 +3406,32 @@ function OrdersPage({ user }: { user: User | null }) {
 
   if (!user) {
     return (
-      <div className="container" style={{ padding: '60px 0', textAlign: 'center' }}>
-        <h2>Track Your Reclaimed Orders</h2>
-        <p style={{ color: 'var(--muted)', margin: '8px 0 20px' }}>Log in to view your orders, live courier waybills, and 72-hour escrow countdowns.</p>
-        <Link className="button dark" href="/login?next=/orders">Log in to view orders ↗</Link>
+      <div className="container orders-gate-container">
+        <div className="orders-gate-card">
+          <div className="gate-icon-badge">
+            <Package size={28} />
+          </div>
+          <span className="eyebrow"><ShieldCheck size={13} /> 72-HOUR ESCROW &amp; LOGISTICS</span>
+          <h2>Track Your Reclaimed Orders</h2>
+          <p>Sign in to view your live orders, courier tracking waybills, and 72-hour escrow release windows.</p>
+          <div className="orders-gate-actions">
+            <Link className="button outline-primary" href="/login?next=/orders">
+              Sign in to view orders ↗
+            </Link>
+            <Link className="button subtle-ghost" href="/marketplace">
+              Browse components catalog
+            </Link>
+          </div>
+          <div className="gate-trust-row">
+            <span>✓ Protected by 72-Hour Inspection Escrow</span>
+            <span>•</span>
+            <span>Lalamove</span>
+            <span>•</span>
+            <span>J&amp;T Express</span>
+            <span>•</span>
+            <span>LBC Express</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -3946,8 +3851,8 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
   return (
     <div className="container">
       <Heading
-        title="Technician Account & Procurement Tiers"
-        text="Manage your repair workshop profile, B2B procurement tier, and escrow settings."
+        title="Technician Account & Settings"
+        text="Manage your repair workshop profile, account credentials, and escrow settings."
       />
 
       {success && <div className="notice success" role="alert">{success}</div>}
@@ -4112,35 +4017,6 @@ function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: Use
   );
 }
 
-function ThemeToggle() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  useEffect(() => {
-    const current = (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark';
-    setTheme(current);
-  }, []);
-
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem('silicon-theme', next);
-    document.documentElement.setAttribute('data-theme', next);
-    document.documentElement.style.colorScheme = next;
-    document.documentElement.style.backgroundColor = next === 'light' ? '#f8faf8' : '#080f0e';
-  }
-
-  return (
-    <button
-      className="theme-toggle-btn"
-      onClick={toggleTheme}
-      aria-label="Toggle Cyber Dark / Industrial Light theme"
-      title={`Current theme: ${theme}. Click to switch.`}
-    >
-      {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
-    </button>
-  );
-}
-
 export default function MarketApp() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -4258,6 +4134,36 @@ export default function MarketApp() {
     }
   }
 
+  const [openMenu, setOpenMenu] = useState<'marketplace' | 'company' | 'user' | 'mobile' | null>(null);
+
+  useEffect(() => {
+    setOpenMenu(null);
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenMenu(null);
+    }
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        !target.closest('.nav-dropdown') &&
+        !target.closest('.user-dropdown') &&
+        !target.closest('.mobile-menu-drawer') &&
+        !target.closest('.mobile-nav-toggle')
+      ) {
+        setOpenMenu(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   let content: ReactNode;
   const part = pathname.match(/^\/parts\/(\d+)(\/edit)?$/);
   const order = pathname.match(/^\/orders\/(\d+)$/);
@@ -4269,6 +4175,10 @@ export default function MarketApp() {
   const isOrders = pathname === '/orders';
   const isSupport = pathname === '/support';
   const isAccount = pathname === '/account';
+
+  const isMarketplaceSection = pathname === '/marketplace' || Boolean(part) || pathname === '/verified-pass';
+  const isOrdersSection = pathname === '/orders' || Boolean(order);
+  const isCompanySection = pathname === '/about' || pathname === '/how-it-works' || pathname === '/support';
 
   if (pathname === '/') {
     content = <Home user={user} onAddToCart={addToCart} />;
@@ -4333,19 +4243,73 @@ export default function MarketApp() {
           <span className="brand-mark"><Cpu /></span>
           <span>SILICON<span className="brand-light">TRADING<span className="brand-dot">.</span></span></span>
         </Link>
-        <nav aria-label="Main navigation">
-          <Link className={isMarketplace ? 'active' : ''} href="/marketplace">Marketplace</Link>
-          <Link className={isBulk ? 'active' : ''} href="/marketplace?category=Bulk+lots">Bulk Scrap Lots</Link>
-          <Link className={isVerifiedPass ? 'active' : ''} href="/verified-pass">Verified Pass</Link>
-          <Link className={pathname === '/sell' ? 'active' : ''} href="/sell">Sell a Board</Link>
-          <Link className={isOrders ? 'active' : ''} href="/orders">Orders</Link>
-          <Link className={isSupport ? 'active' : ''} href="/support">Support / Dispute</Link>
-          <Link className={isHowItWorks ? 'active' : ''} href="/about">About Us</Link>
-          <Link className={isAccount ? 'active' : ''} href="/account">Account</Link>
-        </nav>
-        <div className="header-actions">
-          <ThemeToggle />
 
+        {/* Streamlined Main Navigation Pill */}
+        <nav className="header-nav-pill" aria-label="Main navigation">
+          {/* 1. Marketplace ⌄ Dropdown */}
+          <div className="nav-dropdown">
+            <button
+              type="button"
+              className={`nav-link ${isMarketplaceSection ? 'active' : ''}`}
+              onClick={() => setOpenMenu(openMenu === 'marketplace' ? null : 'marketplace')}
+              aria-expanded={openMenu === 'marketplace'}
+              aria-haspopup="true"
+            >
+              <span>Marketplace</span>
+              <ChevronDown size={14} className={`nav-chevron ${openMenu === 'marketplace' ? 'open' : ''}`} />
+            </button>
+            {openMenu === 'marketplace' && (
+              <div className="nav-dropdown-menu">
+                <Link href="/marketplace" className="nav-dropdown-item" onClick={() => setOpenMenu(null)}>
+                  <div className="dropdown-item-title">Browse All Components</div>
+                  <div className="dropdown-item-desc">Salvaged logic boards, PMICs &amp; audio ICs</div>
+                </Link>
+                <Link href="/marketplace?category=Bulk+lots" className="nav-dropdown-item" onClick={() => setOpenMenu(null)}>
+                  <div className="dropdown-item-title">Bulk Scrap Lots</div>
+                  <div className="dropdown-item-desc">Motherboard trays &amp; wholesale donor boards</div>
+                </Link>
+                <Link href="/verified-pass" className="nav-dropdown-item" onClick={() => setOpenMenu(null)}>
+                  <div className="dropdown-item-title">Verified Pass ICs</div>
+                  <div className="dropdown-item-desc">0.75A normal boot tested &amp; certified chips</div>
+                </Link>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Orders Link */}
+          <Link href="/orders" className={`nav-link ${isOrdersSection ? 'active' : ''}`}>
+            Orders
+          </Link>
+
+          {/* 3. Company ⌄ Dropdown */}
+          <div className="nav-dropdown">
+            <button
+              type="button"
+              className={`nav-link ${isCompanySection ? 'active' : ''}`}
+              onClick={() => setOpenMenu(openMenu === 'company' ? null : 'company')}
+              aria-expanded={openMenu === 'company'}
+              aria-haspopup="true"
+            >
+              <span>Company</span>
+              <ChevronDown size={14} className={`nav-chevron ${openMenu === 'company' ? 'open' : ''}`} />
+            </button>
+            {openMenu === 'company' && (
+              <div className="nav-dropdown-menu">
+                <Link href="/about" className="nav-dropdown-item" onClick={() => setOpenMenu(null)}>
+                  <div className="dropdown-item-title">About Us</div>
+                  <div className="dropdown-item-desc">Mission, circular metrics &amp; leadership</div>
+                </Link>
+                <Link href="/support" className="nav-dropdown-item" onClick={() => setOpenMenu(null)}>
+                  <div className="dropdown-item-title">Support &amp; Disputes</div>
+                  <div className="dropdown-item-desc">72-Hour escrow protection &amp; dispute center</div>
+                </Link>
+              </div>
+            )}
+          </div>
+        </nav>
+
+        {/* Right Cluster: Cart, Sign In / Profile, Solid CTA */}
+        <div className="header-actions">
           <Link href="/cart" className="cart-nav-button" aria-label="Parts Cart">
             <ShoppingCart size={16} />
             <span>Cart</span>
@@ -4353,25 +4317,148 @@ export default function MarketApp() {
           </Link>
 
           {user ? (
-            <>
-              <Link href="/workspace" className="login-link">
-                Workspace ({user.role.toUpperCase()})
-              </Link>
-              <button className="text-button" disabled={logoutBusy} onClick={logout}>
-                {logoutBusy ? 'Logging out…' : 'Log out'}
+            <div className="user-dropdown">
+              <button
+                type="button"
+                className="user-profile-btn"
+                onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
+                aria-expanded={openMenu === 'user'}
+                aria-haspopup="true"
+              >
+                <span className="user-avatar-circle">
+                  <UserIcon size={13} />
+                </span>
+                <span className="user-name-text">{user.name.split(' ')[0]}</span>
+                <span className="user-role-badge">{user.role}</span>
+                <ChevronDown size={13} className={`nav-chevron ${openMenu === 'user' ? 'open' : ''}`} />
               </button>
-            </>
+              {openMenu === 'user' && (
+                <div className="user-dropdown-menu">
+                  <div className="user-menu-header">
+                    <div className="user-menu-name">{user.name}</div>
+                    <div className="user-menu-email">{user.email}</div>
+                  </div>
+                  <Link href="/workspace" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                    My Workspace Ledger
+                  </Link>
+                  <Link href="/account" className="user-menu-item" onClick={() => setOpenMenu(null)}>
+                    Account &amp; Tiers
+                  </Link>
+                  <div className="user-menu-divider" />
+                  <button
+                    type="button"
+                    className="user-menu-logout"
+                    disabled={logoutBusy}
+                    onClick={() => {
+                      setOpenMenu(null);
+                      logout();
+                    }}
+                  >
+                    <LogOut size={14} />
+                    <span>{logoutBusy ? 'Logging out…' : 'Log out'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <Link href="/login" className="login-link">Log in</Link>
-          )}
-
-          {(!user || user.role === 'seller') && (
-            <Link className="button dark small" href="/sell">
-              Sell a part <ArrowUpRight size={15} />
+            <Link href="/login" className="user-signin-btn">
+              <UserIcon size={15} />
+              <span>Sign In</span>
             </Link>
           )}
+
+          <Link
+            href={!user || user.role === 'seller' ? '/sell' : '/workspace'}
+            className="start-selling-btn"
+          >
+            <span>Start Selling</span>
+            <ArrowUpRight size={15} />
+          </Link>
+
+          <button
+            type="button"
+            className="mobile-nav-toggle"
+            aria-label={openMenu === 'mobile' ? 'Close navigation menu' : 'Open navigation menu'}
+            onClick={() => setOpenMenu(openMenu === 'mobile' ? null : 'mobile')}
+          >
+            {openMenu === 'mobile' ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </header>
+
+      {/* Mobile Menu Drawer */}
+      {openMenu === 'mobile' && (
+        <div className="mobile-menu-overlay" onClick={() => setOpenMenu(null)}>
+          <div className="mobile-menu-drawer" onClick={e => e.stopPropagation()}>
+            <div className="mobile-menu-section">
+              <span className="mobile-section-title">Marketplace</span>
+              <Link href="/marketplace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                Browse All Components
+              </Link>
+              <Link href="/marketplace?category=Bulk+lots" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                Bulk Scrap Lots
+              </Link>
+              <Link href="/verified-pass" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                Verified Pass ICs
+              </Link>
+            </div>
+
+            <div className="mobile-menu-section">
+              <span className="mobile-section-title">Orders</span>
+              <Link href="/orders" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                Orders &amp; Waybills
+              </Link>
+            </div>
+
+            <div className="mobile-menu-section">
+              <span className="mobile-section-title">Company</span>
+              <Link href="/about" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                About Us
+              </Link>
+              <Link href="/support" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                Support &amp; Disputes
+              </Link>
+            </div>
+
+            <div className="mobile-menu-section">
+              <span className="mobile-section-title">Account</span>
+              {user ? (
+                <>
+                  <Link href="/workspace" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                    My Workspace ({user.role.toUpperCase()})
+                  </Link>
+                  <Link href="/account" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                    Account Settings
+                  </Link>
+                  <button
+                    type="button"
+                    className="mobile-menu-item mobile-logout-btn"
+                    onClick={() => {
+                      setOpenMenu(null);
+                      logout();
+                    }}
+                  >
+                    Log out ({user.name})
+                  </button>
+                </>
+              ) : (
+                <Link href="/login" className="mobile-menu-item" onClick={() => setOpenMenu(null)}>
+                  Sign In
+                </Link>
+              )}
+            </div>
+
+            <Link
+              href={!user || user.role === 'seller' ? '/sell' : '/workspace'}
+              className="start-selling-btn mobile-sell-btn"
+              onClick={() => setOpenMenu(null)}
+            >
+              <span>Start Selling</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       <main id="main">
         {toastMessage && (
@@ -4401,7 +4488,7 @@ export default function MarketApp() {
           </div>
 
           <div>
-            <span className="eyebrow">EXPLORE MARKET</span>
+            <span className="footer-col-header">EXPLORE MARKET</span>
             <Link href="/marketplace">All Components Catalog</Link>
             <Link href="/marketplace?category=Bulk+lots">Bulk Scrap Trays &amp; Lots</Link>
             <Link href="/verified-pass">Verified Pass ICs</Link>
@@ -4415,9 +4502,8 @@ export default function MarketApp() {
           </div>
 
           <div>
-            <span className="eyebrow">SUPPORT &amp; HEADQUARTERS</span>
-            <Link href="/support">72-Hour Escrow Center</Link>
-            <Link href="/account">Procurement Tiers</Link>
+            <span className="footer-col-header">SUPPORT &amp; HEADQUARTERS</span>
+            <Link href="/support">72-Hour Escrow &amp; Dispute Center</Link>
             <p style={{ margin: '10px 0 6px', fontSize: '12px', color: 'var(--muted)' }}>
               <strong>Silicon Trading Partnership</strong><br />
               365 Sandoval Ave. Brgy. Pinagbuhatan,<br />
@@ -4430,9 +4516,9 @@ export default function MarketApp() {
           </div>
 
           <div>
-            <span className="eyebrow">CONTACT &amp; LEADERSHIP</span>
+            <span className="footer-col-header">CONTACT &amp; LEADERSHIP</span>
             <p style={{ margin: '0 0 8px', fontSize: '12.5px', color: 'var(--muted)' }}>
-              <strong>Voice:</strong> (+63) 2 8876-1290 | (+63) 917 842 7890<br />
+              <strong>Voice:</strong> (+63) 2 8876-1290  •  (+63) 917 842 7890<br />
               <strong>Email:</strong> contact@silicontrading.ph<br />
               <strong>Disputes:</strong> support@silicontrading.ph
             </p>

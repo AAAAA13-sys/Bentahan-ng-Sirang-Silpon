@@ -96,13 +96,13 @@ export async function seedLocalAccounts(dbInstance?: PgliteDatabase<typeof schem
     const { getDb } = await import('./db');
     db = await getDb();
   }
-  const passwordHash = await hash('Password123!', 12);
+  const passwordHash = '$2b$10$wzqAZdj4IcOKJY8z/81PTu29MCZDE1l8vdNpc/WL9VyMCkYgi5BJO';
 
   const legacyAccounts = [
     { id: 'legacy-jhun', name: 'Kuya Jhun Pasig Harvester', email: 'kuya.jhun@gmail.com', role: 'seller', location: 'Pasig City', sellerVerified: true },
     { id: 'legacy-juan', name: 'Juan Manila Tech', email: 'juan.repair@gmail.com', role: 'buyer', location: 'Manila', sellerVerified: false },
   ];
-  const legacyPasswordHash = await hash('password123', 12);
+  const legacyPasswordHash = '$2b$10$it28APvBEAmz3Ihw0LlIWe9Li3cAZzuyMN3t/sY/5iQoorYKM/Id.';
   for (const item of [...existingAccounts, ...legacyAccounts]) {
     const [byEmail] = await db.select().from(user).where(eq(user.email, item.email));
     const [byId] = byEmail ? [] : await db.select().from(user).where(eq(user.id, item.id));

@@ -9,7 +9,7 @@ export function localUsernameEmail(value:string,request:Request){
 }
 export async function seedLocalAccounts(){
  if(process.env.DATABASE_URL) return false;
- const db=await getDb();const password=await hash('1234',12);
+ const db=await getDb();const password='$2b$10$4hye/bJ.dTxwpo2LptGVPOS77GJ2vj0RYznQmL5hTT/m76i4HW.0S';
  await db.transaction(async tx=>{
  for(const item of localAccounts){
  const id='local-'+item.username;

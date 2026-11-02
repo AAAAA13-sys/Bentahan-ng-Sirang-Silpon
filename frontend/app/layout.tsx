@@ -8,15 +8,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning style={{ colorScheme: 'dark', backgroundColor: '#080f0e' }}>
+    <html lang="en" data-theme="dark" style={{ colorScheme: 'dark', backgroundColor: '#080f0e' }}>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('silicon-theme')||'dark';document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;document.documentElement.style.backgroundColor=t==='light'?'#f8faf8':'#080f0e';}catch(e){}})()`,
+            __html: `(function(){try{localStorage.removeItem('silicon-theme');document.documentElement.setAttribute('data-theme','dark');document.documentElement.style.colorScheme='dark';document.documentElement.style.backgroundColor='#080f0e';}catch(e){}})()`,
           }}
         />
       </head>
-      <body style={{ backgroundColor: 'var(--paper)', color: 'var(--ink)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>{children}</body>
+      <body style={{ backgroundColor: '#080f0e', color: '#e6f3f0', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>{children}</body>
     </html>
   );
 }

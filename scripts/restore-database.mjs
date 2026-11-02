@@ -1,10 +1,21 @@
 import { PGlite } from '../frontend/node_modules/@electric-sql/pglite/dist/index.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function restoreDatabase(targetDir = 'frontend/.data/postgres') {
-  const seedFile = path.resolve('database-seed-export.json');
-  if (!fs.existsSync(seedFile)) {
+  const candidateSeeds = [
+    path.resolve(targetDir, '../../database-seed-export.json'),
+    path.resolve('database-seed-export.json'),
+    path.resolve('Bentahan-ng-Sirang-Silpon/database-seed-export.json'),
+    path.resolve(__dirname, '../database-seed-export.json'),
+    path.resolve(__dirname, '../backend/db/database-seed-export.json'),
+    path.resolve(__dirname, '../frontend/db/database-seed-export.json')
+  ];
+  const seedFile = candidateSeeds.find(p => fs.existsSync(p));
+  if (!seedFile) {
     console.log('[restore] database-seed-export.json not found, skipping restore.');
     return false;
   }
@@ -39,12 +50,10 @@ export async function restoreDatabase(targetDir = 'frontend/.data/postgres') {
     // 2. Restore Accounts
     if (data.account?.length) {
       for (const a of data.account) {
+        await db.query(`DELETE FROM "account" WHERE (provider_id = $1 AND account_id = $2) OR id = $3`, [a.provider_id, a.account_id, a.id]);
         await db.query(`
           INSERT INTO "account" (id, account_id, provider_id, user_id, access_token, refresh_token, id_token, access_token_expires_at, refresh_token_expires_at, scope, password, created_at, updated_at)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          ON CONFLICT (id) DO UPDATE SET
-            password = EXCLUDED.password,
-            updated_at = EXCLUDED.updated_at
         `, [
           a.id, a.account_id, a.provider_id, a.user_id, a.access_token ?? null,
           a.refresh_token ?? null, a.id_token ?? null, a.access_token_expires_at ?? null,
