@@ -1,0 +1,122 @@
+================================================================================
+SILICON TRADING — SHORTENED PROMOTIONAL WALKTHROUGH SCRIPT
+================================================================================
+Project: Silicon Trading (Circular Electronics Marketplace & E-Waste Escrow Platform)
+Target Duration per Scene: ~12 to 14 seconds (Paced for 10-15s window)
+Length: Exactly 1–2 sentences per scene in pure, basic, natural English
+Total Video Length: ~1 Minute 40 Seconds (8 Scenes @ 13s / 390 frames @ 30 FPS)
+Format: 1920x1080 Pure Webpage Walkthrough
+
+================================================================================
+QUICK PRESENTER CHEAT SHEET (READ-ALOUD SCRIPT)
+================================================================================
+Scene 1 (00:00 - 00:13):
+"Finding reliable phone parts and scrap electronics is hard because of scams and poor quality. Silicon Trading fixes this with a safe, verified marketplace for technicians and recyclers."
+
+Scene 2 (00:13 - 00:26):
+"Our marketplace lets you quickly search for parts by brand, model, and condition. Every listing shows clear photos, exact prices in pesos, and the seller's location."
+
+Scene 3 (00:26 - 00:39):
+"Every part includes clear test results, like diode and voltage readings, so you know exactly what works. Payments are held safely in escrow until the buyer confirms the item."
+
+Scene 4 (00:39 - 00:52):
+"Sellers have a simple dashboard to manage inventory, update stock levels, and fulfill orders. They can also add courier tracking numbers from Lalamove or J&T Express."
+
+Scene 5 (00:52 - 01:05):
+"Listing a new part takes less than a minute. As you type your price, the platform automatically calculates the escrow fee and shows your exact take-home payout."
+
+Scene 6 (01:05 - 01:18):
+"Buyers pay upfront, but their money stays protected. After delivery, they have twenty-four hours to test the part and get a full refund if it is broken."
+
+Scene 7 (01:18 - 01:31):
+"For recyclers, the platform supports wholesale bulk lots of scrap circuit boards. If there is ever an issue, real technicians review the test data to settle disputes fairly."
+
+Scene 8 (01:31 - 01:44):
+"Silicon Trading is built with modern web technologies for fast, reliable, and secure transactions. It makes buying and selling used electronics simple, honest, and profitable for everyone."
+
+================================================================================
+FULL SCENE-BY-SCENE PRODUCTION DETAILS
+================================================================================
+
+--------------------------------------------------------------------------------
+SCENE 1: THE PROBLEM & SOLUTION (00:00 - 00:13)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/ — Homepage Hero & Live Stats]
+- Pure fullscreen view of the home page hero section gliding smoothly downward.
+
+[NARRATION - 28 words | ~12 seconds]:
+"Finding reliable phone parts and scrap electronics is hard because of scams and poor quality. Silicon Trading fixes this with a safe, verified marketplace for technicians and recyclers."
+
+
+--------------------------------------------------------------------------------
+SCENE 2: MARKETPLACE CATALOG (00:13 - 00:26)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/marketplace — Catalog & Filter Sidebar]
+- Clean view scrolling through donor motherboards, sub-boards, and component grades.
+
+[NARRATION - 26 words | ~11 seconds]:
+"Our marketplace lets you quickly search for parts by brand, model, and condition. Every listing shows clear photos, exact prices in pesos, and the seller's location."
+
+
+--------------------------------------------------------------------------------
+SCENE 3: HARDWARE DIAGNOSTICS & ESCROW (00:26 - 00:39)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/parts/1 — Part Specifications & Escrow Card]
+- Clean view showing diode readings, multimeter specs, and the 8% escrow breakdown.
+
+[NARRATION - 29 words | ~12 seconds]:
+"Every part includes clear test results, like diode and voltage readings, so you know exactly what works. Payments are held safely in escrow until the buyer confirms the item."
+
+
+--------------------------------------------------------------------------------
+SCENE 4: SELLER WORKSPACE (00:39 - 00:52)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/workspace — Seller Dashboard & Orders]
+- Dashboard showing stock count controls, quick adjustments, and courier status.
+
+[NARRATION - 27 words | ~12 seconds]:
+"Sellers have a simple dashboard to manage inventory, update stock levels, and fulfill orders. They can also add courier tracking numbers from Lalamove or J&T Express."
+
+
+--------------------------------------------------------------------------------
+SCENE 5: CREATING A LISTING (00:52 - 01:05)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/sell — Sell Form & Dynamic Payout Calculator]
+- Listing creation page showing model selection, diagnostics, and real-time fee preview.
+
+[NARRATION - 27 words | ~12 seconds]:
+"Listing a new part takes less than a minute. As you type your price, the platform automatically calculates the escrow fee and shows your exact take-home payout."
+
+
+--------------------------------------------------------------------------------
+SCENE 6: BUYER ORDER & 24-HOUR FULL REFUND WINDOW (01:05 - 01:18)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/orders/1 — Order Lifecycle & Escrow Protection]
+- Order timeline with courier tracking, delivery confirmation, and 24-hour refund window.
+
+[NARRATION - 28 words | ~12 seconds]:
+"Buyers pay upfront, but their money stays protected. After delivery, they have twenty-four hours to test the part and get a full refund if it is broken."
+
+
+--------------------------------------------------------------------------------
+SCENE 7: BULK SCRAP & FAIR DISPUTES (01:18 - 01:31)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/marketplace?category=Bulk+lots — Bulk Scrap Lots]
+- Scrap motherboard lots, PCB barrels, and technical arbitration workflow.
+
+[NARRATION - 29 words | ~12 seconds]:
+"For recyclers, the platform supports wholesale bulk lots of scrap circuit boards. If there is ever an issue, real technicians review the test data to settle disputes fairly."
+
+
+--------------------------------------------------------------------------------
+SCENE 8: TECH STACK & CONCLUSION (01:31 - 01:44)
+--------------------------------------------------------------------------------
+[ON-SCREEN DISPLAY: http://127.0.0.1:8090/how-it-works — Architecture & System Flow]
+- Clean overview of system reliability, verified transactions, and wrap-up.
+
+[NARRATION - 26 words | ~11 seconds]:
+"Silicon Trading is built with modern web technologies for fast, reliable, and secure transactions. It makes buying and selling used electronics simple, honest, and profitable for everyone."
+
+================================================================================
+END OF SCRIPT
+================================================================================

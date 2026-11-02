@@ -1,4 +1,5 @@
 const config = {
+  devIndicators: false,
   serverExternalPackages: ['@electric-sql/pglite', 'postgres'],
   poweredByHeader: false,
   async rewrites() {

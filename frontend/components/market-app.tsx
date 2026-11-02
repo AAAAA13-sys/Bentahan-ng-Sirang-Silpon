@@ -8,7 +8,7 @@ import {
   Monitor, Package, Plus, CheckCircle2, AlertTriangle, Clock, RefreshCw, X, ZoomIn,
   Sun, Moon, ArrowRight, UserCheck, Shield, Layers, ArrowLeft, MapPin, Copy, Check, ExternalLink,
   Database, ShoppingCart, ShoppingBag, Trash2, Tag, HelpCircle, FileText, Sparkles, Percent, Award,
-  Ticket, MessageSquare, Settings, CheckCircle, Filter
+  Ticket, MessageSquare, Settings, CheckCircle, Filter, Phone, Mail, Users, Compass
 } from 'lucide-react';
 
 type User = {
@@ -333,7 +333,25 @@ function CircularTechStats() {
   );
 }
 
-function Card({ listing: l, onAddToCart }: { listing: Listing; onAddToCart?: (l: Listing) => void }) {
+function highlightMatch(text?: string | null, query?: string | null) {
+  if (!text) return '';
+  if (!query || !query.trim()) return text;
+  const terms = query.trim().split(/\s+/).filter(Boolean);
+  if (!terms.length) return text;
+  const pattern = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+  const parts = text.split(pattern);
+  return parts.map((part, i) =>
+    pattern.test(part) ? (
+      <mark key={i} className="search-highlight">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
+function Card({ listing: l, onAddToCart, query }: { listing: Listing; onAddToCart?: (l: Listing) => void; query?: string | null }) {
   const isTested = l.condition === 'Tested working';
   const isHarvest = l.condition === 'For harvesting';
   const condBg = isTested ? 'rgba(5, 150, 105, 0.92)' : isHarvest ? 'rgba(217, 119, 6, 0.92)' : 'rgba(37, 99, 235, 0.92)';
@@ -358,16 +376,16 @@ function Card({ listing: l, onAddToCart }: { listing: Listing; onAddToCart?: (l:
         <div className="product-body">
           <div className="product-meta">
             <span>{l.brand} · {l.category}</span>
-            <span className="memory-spec">{l.storageGb || '128GB'} / {l.ramGb || '6GB'}</span>
+            <span className="memory-spec">{highlightMatch(l.storageGb || '128GB', query)} / {l.ramGb || '6GB'}</span>
           </div>
-          <h3>{l.title}</h3>
+          <h3>{highlightMatch(l.title, query)}</h3>
           <p className="model">
-            {l.model}
+            {highlightMatch(l.model, query)}
             {l.chassisModel && <span className="chassis-model-tag" style={{ marginLeft: '6px' }}>{l.chassisModel}</span>}
           </p>
           {l.icCode && (
             <div className="ic-code-sub">
-              <span>IC:</span> <code>{l.icCode}</code>
+              <span>IC:</span> <code>{highlightMatch(l.icCode, query)}</code>
             </div>
           )}
           <div className="product-price">
@@ -444,11 +462,11 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
           </form>
           <div className="hero-tags">
             <span>Popular searches</span>
-            <Link href="/marketplace?q=iPhone">iPhone boards ↗</Link>
-            <Link href="/marketplace?category=ICs+%26+chips">Power ICs ↗</Link>
-            <Link href="/marketplace?category=Bulk+lots">Bulk lots ↗</Link>
-            <Link href="/marketplace?storageGb=128GB">128GB Boards ↗</Link>
-            <Link href="/marketplace?storageGb=256GB">256GB Flagships ↗</Link>
+            <Link href="/marketplace?q=iPhone" className="hero-tag-pill">iPhone boards ↗</Link>
+            <Link href={`/marketplace?category=${encodeURIComponent('ICs & chips')}`} className="hero-tag-pill">Power ICs ↗</Link>
+            <Link href={`/marketplace?category=${encodeURIComponent('Bulk lots')}`} className="hero-tag-pill">Bulk lots ↗</Link>
+            <Link href="/marketplace?storageGb=128GB" className="hero-tag-pill">128GB Boards ↗</Link>
+            <Link href="/marketplace?storageGb=256GB" className="hero-tag-pill">256GB Flagships ↗</Link>
           </div>
           <div className="hero-note">
             <Recycle size={16} /> Less e-waste. More working devices in the circular economy.
@@ -528,21 +546,25 @@ function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: List
         </Remote>
       </section>
 
-      <section className="container story-banner">
-        <div className="story-symbol"><Recycle /></div>
-        <div>
-          <span className="eyebrow">THE CIRCULAR ADVANTAGE</span>
-          <h2>A broken phone isn’t<br />the end of the story.</h2>
-          <p>Connect the parts sitting on your workbench with the technicians who know how to revive them.</p>
-          <Link className="button dark" href={!user || user.role === 'seller' ? '/sell' : '/marketplace'}>
-            {!user || user.role === 'seller' ? 'Start selling' : 'Browse components'} ↗
-          </Link>
+      <section className="story-banner">
+        <div className="story-content-wrap">
+          <div className="story-symbol"><Recycle /></div>
+          <div className="story-copy">
+            <span className="eyebrow">THE CIRCULAR ADVANTAGE</span>
+            <h2>A broken phone isn’t<br />the end of the story.</h2>
+            <p>The Smartphone Donor Board Pipeline. Connect salvaged silicon microchips with the manufacturers who need them for sustainable tech production.</p>
+            <Link className="button dark" href={!user || user.role === 'seller' ? '/sell' : '/marketplace'}>
+              {!user || user.role === 'seller' ? 'Start selling' : 'Browse components'} ↗
+            </Link>
+          </div>
         </div>
         <div className="story-aside">
-          <span>COLLECT.</span>
-          <span>CONNECT.</span>
-          <span className="green">RECREATE.</span>
-          <Link href="/how-it-works">See how the pipeline works ↗</Link>
+          <div className="story-motto">
+            <span>COLLECT.</span>
+            <span>CONNECT.</span>
+            <span className="green">RECREATE.</span>
+          </div>
+          <Link href="/about" className="story-pipeline-link">See how the pipeline works ↗</Link>
         </div>
       </section>
       <About compact />
@@ -709,6 +731,40 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
         ))}
       </div>
 
+      <div className="catalog-quick-tags">
+        <span className="quick-tags-label"><Search size={13} /> Popular searches:</span>
+        <Link
+          href="/marketplace?q=iPhone"
+          className={`quick-tag ${params.get('q') === 'iPhone' ? 'active' : ''}`}
+        >
+          iPhone boards ↗
+        </Link>
+        <Link
+          href={`/marketplace?category=${encodeURIComponent('ICs & chips')}`}
+          className={`quick-tag ${params.get('category') === 'ICs & chips' ? 'active' : ''}`}
+        >
+          Power ICs ↗
+        </Link>
+        <Link
+          href={`/marketplace?category=${encodeURIComponent('Bulk lots')}`}
+          className={`quick-tag ${params.get('category') === 'Bulk lots' ? 'active' : ''}`}
+        >
+          Bulk lots ↗
+        </Link>
+        <Link
+          href="/marketplace?storageGb=128GB"
+          className={`quick-tag ${params.get('storageGb') === '128GB' ? 'active' : ''}`}
+        >
+          128GB Boards ↗
+        </Link>
+        <Link
+          href="/marketplace?storageGb=256GB"
+          className={`quick-tag ${params.get('storageGb') === '256GB' ? 'active' : ''}`}
+        >
+          256GB Flagships ↗
+        </Link>
+      </div>
+
       <div className="catalog-layout">
         <aside className="filters">
           <form action="/marketplace" key={query}>
@@ -719,14 +775,14 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
             <Field
               label="Search"
               name="q"
-              value={params.get('q') || ''}
+              defaultValue={params.get('q') || ''}
               placeholder="e.g. A14, Exynos, 256GB"
               required={false}
             />
             <Field
               label="Storage (ROM Class)"
               name="storageGb"
-              value={params.get('storageGb') || ''}
+              defaultValue={params.get('storageGb') || ''}
               required={false}
             >
               <option value="">All Capacities (4GB - 1TB)</option>
@@ -737,7 +793,7 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
             <Field
               label="Board Scrap Grade"
               name="boardClass"
-              value={params.get('boardClass') || ''}
+              defaultValue={params.get('boardClass') || ''}
               required={false}
             >
               <option value="">All Scrap Grades</option>
@@ -755,7 +811,7 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
                 key={key as string}
                 label={label as string}
                 name={key as string}
-                value={params.get(key as string) || ''}
+                defaultValue={params.get(key as string) || ''}
                 required={false}
               >
                 <option value="">{key === 'sort' ? 'Newest first' : 'All'}</option>
@@ -799,7 +855,7 @@ function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
             </div>
             <div className="product-grid catalog-products">
               {remote.data?.listings.map(l => (
-                <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
+                <Card key={l.id} listing={l} onAddToCart={onAddToCart} query={params.get('q')} />
               ))}
             </div>
             {remote.data?.listings.length === 0 && (
@@ -1699,13 +1755,7 @@ function Workspace({ user }: { user: User }) {
       <Heading
         title={`Your workbench, ${user.name.split(' ')[0]}.`}
         text={`${user.role.charAt(0).toUpperCase() + user.role.slice(1)} workspace · Philippine circular electronics trading.`}
-      >
-        {user.role === 'seller' && (
-          <Link className="button dark" href="/sell">
-            <Plus size={16} /> List a component
-          </Link>
-        )}
-      </Heading>
+      />
 
       {conflictMsg && (
         <div className="notice conflict" role="alert">
@@ -1906,8 +1956,13 @@ function Workspace({ user }: { user: User }) {
         {user.role === 'seller' && (
           <section className="workspace-section">
             <div className="section-heading">
-              <h2>Your listings</h2>
-              <span>{remote.data?.listings.length ?? 0} listings</span>
+              <div>
+                <h2>Your listings</h2>
+                <span>{remote.data?.listings.length ?? 0} listings</span>
+              </div>
+              <Link className="button dark" href="/sell">
+                <Plus size={16} /> List a component
+              </Link>
             </div>
             {remote.data?.listings.length ? (
               <div className="table-wrap">
@@ -2641,68 +2696,376 @@ function OrderDetail({ order: o, user, reload }: { order: Order; user: User; rel
 }
 
 function About({ compact = false }: { compact?: boolean }) {
-  return (
-    <section className={`container section ${compact ? '' : 'about-page'}`}>
-      {!compact && (
-        <Heading
-          title="One part. A new possibility."
-          text="A simpler way to source reclaimed smartphone components."
-        />
-      )}
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">A SIMPLER WAY TO SOURCE</span>
-          <h2>From one workbench to another.</h2>
-        </div>
-        {compact && <Link href="/how-it-works">How it works ↗</Link>}
-      </div>
-      <div className="steps">
-        {[
-          [
-            'DISCOVER',
-            'Find the right fit.',
-            'Search by device, brand or component. Check the exact model, condition and seller’s diagnostic notes.',
-          ],
-          [
-            'CONNECT',
-            'Reserve your component.',
-            'Create a buyer account, confirm your quantity and delivery details. Protected by 8% platform escrow.',
-          ],
-          [
-            'RESTORE',
-            'Put potential to work.',
-            'Follow shipment details, confirm receipt and inspect your part with 72-hour dispute window. Accept or raise an issue from your private order.',
-          ],
-        ].map(([label, title, text], i) => (
-          <article key={label}>
-            <span>0{i + 1} / {label}</span>
-            <h3>{title}</h3>
-            <p>{text}</p>
-          </article>
-        ))}
-      </div>
-      {!compact && (
-        <>
-          <div className="story-banner">
-            <div className="story-symbol"><Recycle /></div>
-            <div>
-              <span className="eyebrow">LESS WASTE. MORE POSSIBILITY.</span>
-              <h2>Built for the people<br />who keep tech alive.</h2>
-              <p>
-                Technicians, refurbishers and component sellers can connect around clear, model-specific listings.
-              </p>
-              <Link className="button dark" href="/marketplace">Explore components ↗</Link>
-            </div>
+  if (compact) {
+    return (
+      <section className="container section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">A SIMPLER WAY TO SOURCE</span>
+            <h2>From one workbench to another.</h2>
           </div>
-          <div className="panel section">
-            <h3>A clear understanding.</h3>
-            <p>
-              Silicon Trading is a high-tech Philippine circular electronics marketplace. Verification is a seller status managed by administrators; diagnostic claims are seller-supplied. Always confirm pad integrity and revision match.
+          <Link href="/about" className="inline-link">How the pipeline works ↗</Link>
+        </div>
+        <div className="steps">
+          {[
+            [
+              'DISCOVER',
+              'Find the right fit.',
+              'Search by device, brand or component. Check the exact model, condition and seller’s diagnostic notes.',
+            ],
+            [
+              'CONNECT',
+              'Reserve your component.',
+              'Create a buyer account, confirm your quantity and delivery details. Protected by 8% platform escrow.',
+            ],
+            [
+              'RESTORE',
+              'Put potential to work.',
+              'Follow shipment details, confirm receipt and inspect your part with 72-hour dispute window. Accept or raise an issue from your private order.',
+            ],
+          ].map(([label, title, text], i) => (
+            <article key={label}>
+              <span>0{i + 1} / {label}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="container about-page">
+      {/* Bento Hero Header */}
+      <section className="about-bento-hero">
+        <span className="eyebrow">
+          <Cpu size={14} /> THE SMARTPHONE DONOR BOARD PIPELINE
+        </span>
+        <h1>Silicon Trading: The Smartphone Donor Board Pipeline</h1>
+        <p style={{ maxWidth: '880px', fontSize: '16px', lineHeight: '1.7', color: 'var(--ink-secondary)' }}>
+          Commercializing reclaimed silicon microchips and donor logic boards for sustainable circular tech manufacturing. We connect salvaged silicon microchips with the manufacturers and technicians who need them for sustainable tech production.
+        </p>
+        <div className="about-badge-row">
+          <span className="about-pill green"><ShieldCheck size={14} /> 72-Hour Inspection Escrow</span>
+          <span className="about-pill green"><Cpu size={14} /> Standardized Grading (Grade A/B/C)</span>
+          <span className="about-pill green"><Truck size={14} /> Integrated Couriers: LBC · J&amp;T · Lalamove</span>
+          <span className="about-pill"><CheckCircle2 size={14} /> Protected Buyer Settlement</span>
+          <span className="about-pill"><Recycle size={14} /> 100% Circular Tech E-Waste Diversion</span>
+          <span className="about-pill"><Award size={14} /> Verified Technician Network</span>
+        </div>
+      </section>
+
+      {/* Section 1: Vision & Mission */}
+      <div className="about-grid-2">
+        <article className="about-card">
+          <span className="eyebrow"><Compass size={14} /> OUR VISION</span>
+          <h3>Zero Usable Silicon Left Behind</h3>
+          <p>
+            To establish the Philippines as a benchmark for circular electronics, creating a transparent, standardized supply network where every salvageable motherboard, power IC, and NAND flash finds a second life in active devices rather than landfills.
+          </p>
+          <div style={{ marginTop: '20px', padding: '14px', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--line)' }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase' }}>Environmental Impact:</span>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+              Diverting electronic scrap from Metro Manila disposal centers while supplying genuine OEM parts to local independent technicians at competitive rates.
             </p>
           </div>
-        </>
-      )}
-    </section>
+        </article>
+
+        <article className="about-card">
+          <span className="eyebrow"><ShieldCheck size={14} /> OUR MISSION</span>
+          <h3>Microscope-Verified Component Trust</h3>
+          <p>
+            We eliminate the risk of counterfeit or dead parts in the secondary repair market. Through standardized diagnostic tiers, detailed microscope photography requirements, and 72-hour buyer inspection escrow, we make sourcing reclaimed logic boards safe, reliable, and friction-free.
+          </p>
+          <div style={{ marginTop: '20px', padding: '14px', background: 'var(--surface-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--line)' }}>
+            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase' }}>Buyer Protection Guarantee:</span>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--muted)' }}>
+              Every board is protected with an escrow hold until the technician confirms pad impedance, clean solder points, and lack of delamination under the microscope.
+            </p>
+          </div>
+        </article>
+      </div>
+
+      {/* Section 2: The 4-Stage Operational Pipeline */}
+      <section className="section" style={{ paddingTop: '10px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">THE OPERATIONAL PIPELINE</span>
+            <h2>How Reclaimed Silicon Flows Through the Exchange.</h2>
+          </div>
+          <Link href="/marketplace" className="inline-link">Browse verified inventory ↗</Link>
+        </div>
+
+        <div className="steps">
+          {[
+            [
+              '01 / HARVEST & SOURCE',
+              'Upstream E-Waste Collection',
+              'Local scrap collectors, repair hubs, and electronics liquidators aggregate beyond-economical-repair (BER) mobile devices across key regional centers.',
+            ],
+            [
+              '02 / STANDARDIZE & GRADE',
+              'Microscopic Diagnostic Tiers',
+              'Sellers document trace pad condition, high-res microscope imagery, and DC power boot draw. Listings are categorized into Grade A (Complete), Grade B (Donor ICs), or Grade C (Refining & Practice).',
+            ],
+            [
+              '03 / PROTECTED ESCROW',
+              'Two-Sided Settlement Security',
+              'Buyers reserve components with platform escrow protection. Funds remain vaulted while sellers securely package delicate silicon in anti-static materials and dispatch via tracked couriers.',
+            ],
+            [
+              '04 / 72-HOUR VERIFICATION',
+              'Microscope Bench Inspection',
+              'Technicians receive their parcels and have 72 hours to verify trace impedance and solder pad integrity under a microscope before funds release to the seller.',
+            ],
+          ].map(([step, title, text]) => (
+            <article key={step}>
+              <span>{step}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Section 3: Executive Leadership */}
+      <section className="section" style={{ paddingTop: '20px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow"><Users size={14} /> LEADERSHIP &amp; ENGINEERING</span>
+            <h2>Executive Leadership Team.</h2>
+          </div>
+          <span className="about-pill">Headquartered in Metro Manila</span>
+        </div>
+        <p style={{ color: 'var(--muted)', maxWidth: '800px', marginBottom: '24px' }}>
+          Silicon Trading is built by engineers, supply chain specialists, and micro-soldering professionals dedicated to modernizing electronics recovery and component sourcing in the Philippines.
+        </p>
+
+        <div className="team-grid">
+          {[
+            {
+              name: 'Yuri A. Soliven',
+              role: 'Co-Founder & Head of Engineering',
+              initials: 'YS',
+              focus: 'Pipeline Architecture & Platform',
+              desc: 'Architect of the donor board pipeline platform, real-time chip compatibility lookup engine, and automated grading schemas for salvaged silicon.',
+            },
+            {
+              name: 'Thomas Dominique G. Baran',
+              role: 'Co-Founder & Head of Business Development',
+              initials: 'TB',
+              focus: 'Merchant Expansion & B2B Partnerships',
+              desc: 'Leads B2B manufacturer acquisition, donor board intake from major districts, and commercial silicon procurement.',
+            },
+            {
+              name: 'David Ron M. Mendoza',
+              role: 'Co-Founder & Head of Systems QA',
+              initials: 'DM',
+              focus: 'QA & Verification',
+              desc: 'Manages platform security, chip identity verification standards, dispute resolution protocols, and automated testing harnesses for donor boards.',
+            },
+            {
+              name: 'Mitchell Jazz L. Concepcion',
+              role: 'Co-Founder & Head of Operations & Logistics',
+              initials: 'MC',
+              focus: 'Multi-Courier Logistics & Operations',
+              desc: 'Directs logistics integrations for bulk donor board transport, anti-static shipping guidelines, and circular partner networks.',
+            },
+          ].map((m) => (
+            <div key={m.name} className="team-card">
+              <div className="team-avatar">{m.initials}</div>
+              <h4>{m.name}</h4>
+              <span className="team-role">{m.role}</span>
+              <p>{m.desc}</p>
+              <div className="team-card-footer">
+                <span>Focus:</span>
+                <strong>{m.focus}</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Section 4: Official Headquarters & Support */}
+      <section className="section" style={{ paddingTop: '10px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow"><MapPin size={14} /> HEADQUARTERS &amp; SUPPORT</span>
+            <h2>Operations Center &amp; Support Matrix.</h2>
+          </div>
+          <span className="about-pill green">Status: Verified Hub</span>
+        </div>
+
+        <div className="contact-bento">
+          <div className="contact-card">
+            <h3>Operations Hub &amp; Diagnostics Facility</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>
+              Strategically based in Pasig City to provide rapid same-day courier dispatch and technical support across Metro Manila&apos;s primary commercial corridors.
+            </p>
+
+            <div className="contact-list">
+              <div className="contact-item">
+                <div className="contact-item-icon"><MapPin size={18} /></div>
+                <div>
+                  <strong>Headquarters Address</strong>
+                  <span>365 Sandoval Ave. Brgy. Pinagbuhatan, Pasig City, Metro Manila, 1602, Philippines</span>
+                </div>
+              </div>
+
+              <div className="contact-item">
+                <div className="contact-item-icon"><Clock size={18} /></div>
+                <div>
+                  <strong>Operating &amp; Support Hours</strong>
+                  <span>Monday – Saturday: 8:00 AM – 6:00 PM PHT<br />Logistics Intake &amp; Systems Monitoring: 24/7 Online</span>
+                </div>
+              </div>
+
+              <div className="contact-item">
+                <div className="contact-item-icon"><Database size={18} /></div>
+                <div>
+                  <strong>Inspection &amp; Verification Facilities</strong>
+                  <span>Equipped with high-magnification optical inspection scopes and DC bench power supplies for dispute verification.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="contact-card">
+            <h3>Direct Communication Channels</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.6' }}>
+              Reach out directly to our engineering, merchant operations, or dispute resolution departments.
+            </p>
+
+            <div className="contact-list">
+              <div className="contact-item">
+                <div className="contact-item-icon"><Phone size={18} /></div>
+                <div>
+                  <strong>Direct Inquiries &amp; Hotline</strong>
+                  <span>Metro Manila Hotline: (+63) 2 8876-1290<br />Support &amp; Viber: (+63) 917 842 7890</span>
+                </div>
+              </div>
+
+              <div className="contact-item">
+                <div className="contact-item-icon"><Mail size={18} /></div>
+                <div>
+                  <strong>Electronic Inquiries</strong>
+                  <div>General: <a href="mailto:contact@silicontrading.ph">contact@silicontrading.ph</a></div>
+                  <div>Buyer Support &amp; Disputes: <a href="mailto:support@silicontrading.ph">support@silicontrading.ph</a></div>
+                  <div>Partnerships &amp; Commercial: <a href="mailto:partners@silicontrading.ph">partners@silicontrading.ph</a></div>
+                </div>
+              </div>
+
+              <div className="contact-item">
+                <div className="contact-item-icon"><ShieldCheck size={18} /></div>
+                <div>
+                  <strong>72-Hour Resolution SLA</strong>
+                  <span>All buyer claims reviewed within 24 hours of submission with technical microscope mediation.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 5: Integrated Logistics Network */}
+      <section className="section" style={{ paddingTop: '10px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow"><Truck size={14} /> FACILITATED COURIER LOGISTICS</span>
+            <h2>Integrated Shipping &amp; Real-Time Tracking.</h2>
+          </div>
+        </div>
+        <p style={{ color: 'var(--muted)', maxWidth: '800px', marginBottom: '24px' }}>
+          Sellers fulfill orders through trusted courier networks. Silicon Trading monitors tracking numbers and shipment states in real-time to synchronize escrow windows with actual doorstep delivery.
+        </p>
+
+        <div className="logistics-strip">
+          <div className="logistics-card">
+            <div className="logistics-icon"><Truck size={22} /></div>
+            <div>
+              <strong style={{ display: 'block', fontSize: '16px', color: 'var(--ink)' }}>Lalamove Express</strong>
+              <span style={{ fontSize: '12px', color: 'var(--green)', fontFamily: 'JetBrains Mono', fontWeight: 700 }}>SAME-DAY INTRA-CITY</span>
+              <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: '1.5' }}>
+                Instant point-to-point motorcycle and MPV dispatch across Metro Manila for emergency bench repairs and urgent logic board sourcing.
+              </p>
+            </div>
+          </div>
+
+          <div className="logistics-card">
+            <div className="logistics-icon"><Package size={22} /></div>
+            <div>
+              <strong style={{ display: 'block', fontSize: '16px', color: 'var(--ink)' }}>J&amp;T Express</strong>
+              <span style={{ fontSize: '12px', color: 'var(--green)', fontFamily: 'JetBrains Mono', fontWeight: 700 }}>NATIONWIDE DOORSTEP</span>
+              <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: '1.5' }}>
+                Dependable island-wide parcel delivery connecting provincial repair technicians across Luzon, Visayas, and Mindanao with Manila inventories.
+              </p>
+            </div>
+          </div>
+
+          <div className="logistics-card">
+            <div className="logistics-icon"><Shield size={22} /></div>
+            <div>
+              <strong style={{ display: 'block', fontSize: '16px', color: 'var(--ink)' }}>LBC Express</strong>
+              <span style={{ fontSize: '12px', color: 'var(--green)', fontFamily: 'JetBrains Mono', fontWeight: 700 }}>HIGH-VALUE SECURE PARCEL</span>
+              <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '8px 0 0', lineHeight: '1.5' }}>
+                Insured parcel handling and branch pickup options for high-value flagship boards, rare baseband/CPU bundles, and precision IC trays.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 6: Marketplace Standards & Escrow Architecture */}
+      <section className="section" style={{ paddingTop: '10px', marginBottom: '60px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow"><Layers size={14} /> PLATFORM ARCHITECTURE</span>
+            <h2>Marketplace Standards &amp; Escrow Protections.</h2>
+          </div>
+          <Link href="/sell" className="button dark small">Start selling components ↗</Link>
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Protection Tier</th>
+                <th>Participant</th>
+                <th>Escrow / Fee Structure</th>
+                <th>Standard &amp; Deliverables</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Buyer Escrow Protection</strong></td>
+                <td>Refurbishers &amp; Technicians</td>
+                <td>Included on all verified orders</td>
+                <td>72-hour microscope inspection window, full refund guarantee on unnoted pad lifts or short circuits.</td>
+              </tr>
+              <tr>
+                <td><strong>Verified Diagnostic Pass</strong></td>
+                <td>Component Sellers</td>
+                <td>Included with Grade A/B documentation</td>
+                <td>Automated IC compatibility tagging, microscope photo badges, priority workbench search placement.</td>
+              </tr>
+              <tr>
+                <td><strong>Safe Settlement Escrow</strong></td>
+                <td>All Platform Users</td>
+                <td>8% transaction escrow fee</td>
+                <td>Automated funds vaulting, multi-courier tracking sync, seller payout upon buyer verification.</td>
+              </tr>
+              <tr>
+                <td><strong>Bulk Scrap &amp; Lot Liquidation</strong></td>
+                <td>Repair Chains &amp; Consolidators</td>
+                <td>Custom volume consignment</td>
+                <td>Pallet-level donor board liquidation, batch lot listings, and direct enterprise technician matching.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -3900,7 +4263,7 @@ export default function MarketApp() {
   const order = pathname.match(/^\/orders\/(\d+)$/);
   const isBulk = pathname === '/marketplace' && searchParams.get('category') === 'Bulk lots';
   const isMarketplace = (pathname === '/marketplace' && !isBulk) || Boolean(part);
-  const isHowItWorks = pathname === '/how-it-works';
+  const isHowItWorks = pathname === '/how-it-works' || pathname === '/about';
   const isCart = pathname === '/cart';
   const isVerifiedPass = pathname === '/verified-pass';
   const isOrders = pathname === '/orders';
@@ -3911,7 +4274,7 @@ export default function MarketApp() {
     content = <Home user={user} onAddToCart={addToCart} />;
   } else if (pathname === '/marketplace') {
     content = <Catalog onAddToCart={addToCart} />;
-  } else if (pathname === '/how-it-works') {
+  } else if (pathname === '/how-it-works' || pathname === '/about') {
     content = <About />;
   } else if (isCart) {
     content = (
@@ -3965,7 +4328,6 @@ export default function MarketApp() {
 
   return (
     <>
-      <a className="skip" href="#main">Skip to content</a>
       <header className="header">
         <Link href="/" className="brand" aria-label="Silicon Trading home">
           <span className="brand-mark"><Cpu /></span>
@@ -3973,10 +4335,12 @@ export default function MarketApp() {
         </Link>
         <nav aria-label="Main navigation">
           <Link className={isMarketplace ? 'active' : ''} href="/marketplace">Marketplace</Link>
-          <Link className={pathname === '/sell' ? 'active' : ''} href="/sell">Sell a Board</Link>
+          <Link className={isBulk ? 'active' : ''} href="/marketplace?category=Bulk+lots">Bulk Scrap Lots</Link>
           <Link className={isVerifiedPass ? 'active' : ''} href="/verified-pass">Verified Pass</Link>
+          <Link className={pathname === '/sell' ? 'active' : ''} href="/sell">Sell a Board</Link>
           <Link className={isOrders ? 'active' : ''} href="/orders">Orders</Link>
           <Link className={isSupport ? 'active' : ''} href="/support">Support / Dispute</Link>
+          <Link className={isHowItWorks ? 'active' : ''} href="/about">About Us</Link>
           <Link className={isAccount ? 'active' : ''} href="/account">Account</Link>
         </nav>
         <div className="header-actions">
@@ -4026,37 +4390,65 @@ export default function MarketApp() {
       </main>
 
       <footer>
-        <div className="container footer-main">
+        <div className="container footer-main" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '36px' }}>
           <div>
             <Link className="brand footer-brand" href="/">
               SILICON TRADING<span className="brand-dot">.</span>
             </Link>
             <p>
-              A second life for every circuit.<br />
-              Philippine circular electronics marketplace.
+              The Smartphone Donor Board Pipeline. Commercializing reclaimed silicon microchips and donor logic boards for sustainable circular tech manufacturing.
             </p>
           </div>
+
           <div>
-            <span className="eyebrow">EXPLORE</span>
-            <Link href="/marketplace">Browse components</Link>
+            <span className="eyebrow">EXPLORE MARKET</span>
+            <Link href="/marketplace">All Components Catalog</Link>
+            <Link href="/marketplace?category=Bulk+lots">Bulk Scrap Trays &amp; Lots</Link>
             <Link href="/verified-pass">Verified Pass ICs</Link>
-            <Link href="/orders">Orders & Waybills</Link>
+            <Link href="/about">About Us &amp; Company Dossier</Link>
+            <Link href="/orders">Orders &amp; Waybills</Link>
             <Link href="/cart">Parts Cart</Link>
+            <Link href={user ? '/workspace' : '/register'}>
+              {user ? 'My Workspace Ledger' : 'Join as Buyer / Seller'}
+            </Link>
+            <Link href="/sell">Publish Component Listing</Link>
           </div>
+
           <div>
-            <span className="eyebrow">SUPPORT & HUB</span>
+            <span className="eyebrow">SUPPORT &amp; HEADQUARTERS</span>
             <Link href="/support">72-Hour Escrow Center</Link>
             <Link href="/account">Procurement Tiers</Link>
-            <Link href="/how-it-works">How it works</Link>
-            <p style={{ marginTop: '10px', fontSize: '12px', color: 'var(--muted)' }}>
-              Pasig City Operations Hub, Metro Manila
+            <p style={{ margin: '10px 0 6px', fontSize: '12px', color: 'var(--muted)' }}>
+              <strong>Silicon Trading Partnership</strong><br />
+              365 Sandoval Ave. Brgy. Pinagbuhatan,<br />
+              Pasig City, Metro Manila, 1602, Philippines
             </p>
-            <span className="prototype-label">Philippine Circular Tech Network</span>
+            <p style={{ margin: '0', fontSize: '12px', color: 'var(--muted-light)' }}>
+              <strong>Hours:</strong> Mon – Sat: 8:00 AM – 6:00 PM PHT<br />
+              Sunday: Logistics Intake &amp; Maintenance
+            </p>
+          </div>
+
+          <div>
+            <span className="eyebrow">CONTACT &amp; LEADERSHIP</span>
+            <p style={{ margin: '0 0 8px', fontSize: '12.5px', color: 'var(--muted)' }}>
+              <strong>Voice:</strong> (+63) 2 8876-1290 | (+63) 917 842 7890<br />
+              <strong>Email:</strong> contact@silicontrading.ph<br />
+              <strong>Disputes:</strong> support@silicontrading.ph
+            </p>
+            <span style={{ fontSize: '11px', color: 'var(--muted-light)', display: 'block', marginTop: '10px' }}>
+              <strong>Partners:</strong> Y. Soliven · T. Baran · D. Mendoza · M. Concepcion
+            </span>
           </div>
         </div>
+
         <div className="container footer-bottom">
-          <span>© {new Date().getFullYear()} Silicon Trading. Built for the circular economy (RA 9003 & RA 6969).</span>
-          <span>Less waste. More possibility. ↗</span>
+          <span>© {new Date().getFullYear()} Silicon Trading: The Smartphone Donor Board Pipeline. Built for the circular economy (RA 9003 &amp; RA 6969).</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <span>Couriers: Lalamove · J&amp;T Express · LBC Express</span>
+            <span>·</span>
+            <span>Pasig City, Metro Manila</span>
+          </span>
         </div>
       </footer>
     </>

@@ -1,5 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { hash } from 'bcryptjs';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { user, account, listing } from '../db/schema';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import type * as schema from '../db/schema';
@@ -95,8 +98,16 @@ export async function seedLocalAccounts(dbInstance?: PgliteDatabase<typeof schem
   }
   const passwordHash = await hash('Password123!', 12);
 
-  for (const item of existingAccounts) {
-    const [existing] = await db.select().from(user).where(eq(user.email, item.email));
+  const legacyAccounts = [
+    { id: 'legacy-jhun', name: 'Kuya Jhun Pasig Harvester', email: 'kuya.jhun@gmail.com', role: 'seller', location: 'Pasig City', sellerVerified: true },
+    { id: 'legacy-juan', name: 'Juan Manila Tech', email: 'juan.repair@gmail.com', role: 'buyer', location: 'Manila', sellerVerified: false },
+  ];
+  const legacyPasswordHash = await hash('password123', 12);
+  for (const item of [...existingAccounts, ...legacyAccounts]) {
+    const [byEmail] = await db.select().from(user).where(eq(user.email, item.email));
+    const [byId] = byEmail ? [] : await db.select().from(user).where(eq(user.id, item.id));
+    const existing = byEmail || byId;
+    const accountPassword = legacyAccounts.includes(item as typeof legacyAccounts[number]) ? legacyPasswordHash : passwordHash;
     let userId = existing?.id;
     if (!existing) {
       const [created] = await db.insert(user).values({
@@ -110,6 +121,7 @@ export async function seedLocalAccounts(dbInstance?: PgliteDatabase<typeof schem
       userId = created?.id || item.id;
     } else {
       await db.update(user).set({
+        email: item.email,
         name: item.name,
         role: item.role,
         location: item.location,
@@ -127,11 +139,11 @@ export async function seedLocalAccounts(dbInstance?: PgliteDatabase<typeof schem
           accountId: userId,
           providerId: 'credential',
           userId: userId,
-          password: passwordHash,
+          password: accountPassword,
         }).onConflictDoNothing();
       } else {
         await db.update(account).set({
-          password: passwordHash,
+          password: accountPassword,
           updatedAt: new Date(),
         }).where(eq(account.id, cred.id));
       }
@@ -168,6 +180,50 @@ export async function seedLocalAccounts(dbInstance?: PgliteDatabase<typeof schem
         updatedAt: new Date(),
       }).where(eq(account.id, cred.id));
     }
+  }
+
+  // Ensure listings ("the stuffs to be sold") are present for fresh migration
+  try {
+    const [sampleListing] = await db.select({ id: listing.id }).from(listing).limit(1);
+    if (!sampleListing) {
+      const localDir = path.dirname(fileURLToPath(import.meta.url));
+      const candidates = [
+        path.join(process.cwd(), 'database-seed-export.json'),
+        path.join(process.cwd(), 'frontend', 'db', 'database-seed-export.json'),
+        path.resolve(localDir, '../db/database-seed-export.json')
+      ];
+      const found = candidates.find(p => existsSync(p));
+      if (found) {
+        const seedPayload = JSON.parse(readFileSync(found, 'utf8'));
+        if (seedPayload.listing?.length) {
+          for (const l of seedPayload.listing) {
+            await db.insert(listing).values({
+              id: l.id,
+              sellerId: l.seller_id,
+              title: l.title,
+              brand: l.brand,
+              model: l.model,
+              category: l.category,
+              condition: l.condition,
+              description: l.description,
+              diagnostics: l.diagnostics,
+              priceCentavos: l.price_centavos,
+              quantity: l.quantity,
+              minimumQuantity: l.minimum_quantity,
+              art: l.art,
+              isActive: l.is_active ?? true,
+              stockVersion: l.stock_version ?? 0,
+              boardClass: l.board_class ?? '',
+              storageGb: l.storage_gb ?? '',
+              ramGb: l.ram_gb ?? '',
+              icCode: l.ic_code ?? null,
+            }).onConflictDoNothing();
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Listing migration seed notice:', err);
   }
 
   return true;

@@ -2,11 +2,13 @@
 node_modules/
 */node_modules/
 
-# Next.js Build Outputs
+# Next.js & Remotion Build Outputs
 .next/
 */.next/
 out/
 */out/
+build/
+*/build/
 
 # Database Data Directories (PGlite local store)
 .data/

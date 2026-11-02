@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Silicon Trading — Bentahan ng Sirang Silpon | Philippine Circular Electronics Marketplace',
-  description: 'Reclaimed smartphone motherboards, donor logic boards, IC chips, and OLED displays for repair and reuse in the Philippines.',
+  title: 'Silicon Trading: The Smartphone Donor Board Pipeline | B2B Circular Silicon Manufacturing',
+  description: 'The Smartphone Donor Board Pipeline. Commercializing reclaimed silicon microchips and donor logic boards for sustainable circular tech manufacturing.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
