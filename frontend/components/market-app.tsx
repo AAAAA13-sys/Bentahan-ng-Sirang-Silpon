@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   Cpu, Search, ShieldCheck, ShieldAlert, Truck, Recycle, ArrowUpRight, Camera,
   Monitor, Package, Plus, CheckCircle2, AlertTriangle, Clock, RefreshCw, X, ZoomIn,
@@ -20,6 +20,10 @@ type User = {
   phone?: string;
   sellerVerified: boolean;
   tier?: 'starter' | 'pro' | 'enterprise';
+  isBanned?: boolean;
+  banReason?: string;
+  warningCount?: number;
+  lastWarning?: string;
 };
 
 type Listing = {
@@ -865,15 +869,21 @@ function Auth({ register, onAuth }: { register: boolean; onAuth: (u: User) => vo
       const { user } = await api<{ user: User }>(`/api/account/${register ? 'register' : 'login'}`, 'POST', body);
       onAuth(user);
       const part = params.get('part');
-      router.push(
-        part && user.role === 'buyer'
-          ? `/parts/${encodeURIComponent(part)}`
-          : params.get('next') === '/sell' && user.role === 'seller'
-          ? '/sell'
-          : user.role === 'seller'
-          ? '/workspace'
-          : '/marketplace'
-      );
+      const next = params.get('next');
+      if (user.role === 'admin') {
+        router.push('/workspace');
+      } else if (user.role === 'seller') {
+        router.push(next === '/sell' ? '/sell' : '/workspace');
+      } else {
+        // Buyer
+        if (part) {
+          router.push(`/parts/${encodeURIComponent(part)}`);
+        } else if (next === '/cart') {
+          router.push('/cart');
+        } else {
+          router.push('/marketplace');
+        }
+      }
     } catch (e) {
       setError((e as Error).message);
       setFields((e as RequestError).fields);
@@ -1772,15 +1782,68 @@ function Workspace({ user }: { user: User }) {
       commissionRate: number;
       orderCount: number;
     };
+    platformSettings?: {
+      escrowFeeBps: number;
+      escrowFeeRate: number;
+      proFeeRate: number;
+      enterpriseFeeRate: number;
+      inspectionWindowHours: number;
+    };
     sellerStats?: { grossSales: number; platformFees: number; netPayout: number };
     listings: Listing[];
-    sellers: User[];
+    sellers: (User & { activeListingsCount?: number; completedOrdersCount?: number })[];
+    allListings?: (Listing & { seller: User })[];
+    allUsers?: (User & { activeListingsCount?: number; completedOrdersCount?: number })[];
     openOrderCount: number;
   }>('/api/market/workspace');
 
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [conflictMsg, setConflictMsg] = useState('');
+  const [adminSuccess, setAdminSuccess] = useState('');
+  const [cooldownSeconds, setCooldownSeconds] = useState(5);
+
+  function triggerAdminSuccess(msg: string) {
+    setAdminSuccess(msg);
+    setCooldownSeconds(5);
+  }
+
+  // 5-second auto cooldown for action notifications (no manual dismissal needed)
+  useEffect(() => {
+    if (!adminSuccess) return;
+    const interval = setInterval(() => {
+      setCooldownSeconds(prev => {
+        if (prev <= 1) {
+          setAdminSuccess('');
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [adminSuccess]);
+
+  // Admin Workspace Tabs & Filter State (Default: 'overview')
+  const [adminTab, setAdminTab] = useState<'overview' | 'financials' | 'verification' | 'listings' | 'disputes' | 'users'>('overview');
+  const [escrowFeeInput, setEscrowFeeInput] = useState<string>('');
+  const hasInitializedEscrow = useRef(false);
+  const [samplePrice, setSamplePrice] = useState<number>(2000);
+  const [verificationSearch, setVerificationSearch] = useState<string>('');
+  const [verificationFilter, setVerificationFilter] = useState<'all' | 'verified' | 'pending'>('all');
+  const [listingsSearch, setListingsSearch] = useState<string>('');
+  const [listingsFilter, setListingsFilter] = useState<'all' | 'verified_pass' | 'paused'>('all');
+  const [ordersFilter, setOrdersFilter] = useState<'all' | 'disputed' | 'inspection' | 'completed'>('all');
+  const [usersSearch, setUsersSearch] = useState<string>('');
+  const [usersRoleFilter, setUsersRoleFilter] = useState<'all' | 'buyer' | 'seller' | 'warned' | 'banned'>('all');
+
+  // Sync escrow fee input with platform settings on initial load
+  useEffect(() => {
+    if (remote.data?.platformSettings?.escrowFeeRate !== undefined && !hasInitializedEscrow.current) {
+      setEscrowFeeInput(String(remote.data.platformSettings.escrowFeeRate));
+      hasInitializedEscrow.current = true;
+    }
+  }, [remote.data?.platformSettings?.escrowFeeRate]);
 
   async function update(url: string, body: unknown, key: string) {
     setBusy(key);
@@ -1837,8 +1900,207 @@ function Workspace({ user }: { user: User }) {
     }
   }
 
+  // Admin Escrow Fee CRUD Update
+  async function handleUpdateEscrowFee(e: FormEvent) {
+    e.preventDefault();
+    const rate = parseFloat(escrowFeeInput);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      setError('Escrow fee rate must be between 0% and 100%.');
+      return;
+    }
+    if (rate > 30) {
+      const confirmed = window.confirm(
+        `Are you sure you want to set the platform escrow fee to ${rate.toFixed(1)}%? This exceeds the standard 30% limit.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    setBusy('escrow-fee');
+    setError('');
+    try {
+      await api('/api/market/admin/settings', 'POST', { escrowFeeBps: Math.round(rate * 100) });
+      triggerAdminSuccess(`Platform Escrow Take-rate updated to ${rate.toFixed(1)}%! All future orders will reflect this rate.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin Seller Verification CRUD
+  async function handleVerifySeller(sellerId: string, verifyStatus: boolean) {
+    setBusy(`verify-${sellerId}`);
+    setError('');
+    try {
+      await api(`/api/market/sellers/${sellerId}/verify`, 'POST', { verified: verifyStatus });
+      triggerAdminSuccess(`Seller verification ${verifyStatus ? 'APPROVED (Verified Partner)' : 'REVOKED'}.`);
+      remote.reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin Verified Pass CRUD
+  async function handleToggleVerifiedPass(l: Listing) {
+    setBusy(`pass-${l.id}`);
+    setError('');
+    try {
+      await api(`/api/market/admin/listings/${l.id}/verified-pass`, 'POST', { verifiedPass: !l.verifiedPass });
+      triggerAdminSuccess(`Listing #${l.id} Verified Pass ${!l.verifiedPass ? 'GRANTED (Certified PMIC & ICs)' : 'REVOKED'}.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin Listing Visibility CRUD
+  async function handleToggleListingVisibility(l: Listing) {
+    setBusy(`vis-${l.id}`);
+    setError('');
+    try {
+      await api(`/api/market/admin/listings/${l.id}/visibility`, 'POST', { isActive: !l.isActive });
+      triggerAdminSuccess(`Listing #${l.id} ${!l.isActive ? 'PUBLISHED to catalog' : 'PAUSED from catalog'}.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin Delete / Delist Listing CRUD
+  async function handleDeleteListing(listingId: number) {
+    if (!confirm(`Are you sure you want to delist/remove Listing #${listingId}?`)) return;
+    setBusy(`del-${listingId}`);
+    setError('');
+    try {
+      await api(`/api/market/admin/listings/${listingId}/delete`, 'POST', {});
+      triggerAdminSuccess(`Listing #${listingId} successfully delisted.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin User CRUD (Role, Tier, Warn, Ban, Unban, Clear Warnings)
+  async function handleAdminUpdateUser(
+    userId: string,
+    changes: {
+      role?: 'buyer' | 'seller';
+      tier?: string;
+      action?: 'warn' | 'ban' | 'unban' | 'clear_warnings' | 'update';
+      warningReason?: string;
+      banReason?: string;
+    },
+    successMsg?: string
+  ) {
+    setBusy(`user-${userId}`);
+    setError('');
+    try {
+      await api(`/api/market/admin/users/${userId}`, 'POST', changes);
+      triggerAdminSuccess(successMsg || 'User account updated successfully.');
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  function handleWarnUser(u: User) {
+    const defaultReason = 'Misleading component diagnostic report: PMIC missing despite Grade A claim';
+    const reason = prompt(
+      `Issue formal warning to ${u.name} (Current warnings: ${u.warningCount || 0}):\nSpecify warning reason:`,
+      defaultReason
+    );
+    if (!reason || !reason.trim()) return;
+    handleAdminUpdateUser(
+      u.id,
+      { action: 'warn', warningReason: reason.trim() },
+      `⚠️ Warning issued to ${u.name}! (Warning count: ${(u.warningCount || 0) + 1})`
+    );
+  }
+
+  function handleBanUser(u: User) {
+    const defaultReason = 'Fraudulent listing: harvested board had cracked PCB substrate';
+    const reason = prompt(
+      `Confirm banning/suspending ${u.name}:\nSpecify ban reason (their active listings will be paused):`,
+      defaultReason
+    );
+    if (!reason || !reason.trim()) return;
+    handleAdminUpdateUser(
+      u.id,
+      { action: 'ban', banReason: reason.trim() },
+      `🚫 ${u.name} has been BANNED. Active listings paused.`
+    );
+  }
+
+  function handleUnbanUser(u: User) {
+    if (!confirm(`Lift ban and reactivate ${u.name}'s account?`)) return;
+    handleAdminUpdateUser(
+      u.id,
+      { action: 'unban' },
+      `✓ Ban lifted for ${u.name}. Account reactivated.`
+    );
+  }
+
+  function handleClearWarnings(u: User) {
+    if (!confirm(`Clear all warnings for ${u.name}?`)) return;
+    handleAdminUpdateUser(
+      u.id,
+      { action: 'clear_warnings' },
+      `✓ Warnings reset to 0 for ${u.name}.`
+    );
+  }
+
+  // Admin Escrow Dispute Resolution CRUD
+  async function handleResolveDispute(orderId: number) {
+    if (!confirm(`Resolve dispute for Order #${orderId} and release escrow payment to seller?`)) return;
+    setBusy(`order-${orderId}`);
+    setError('');
+    try {
+      await api(`/api/market/orders/${orderId}`, 'POST', { action: 'resolve_dispute' });
+      triggerAdminSuccess(`Dispute for Order #${orderId} RESOLVED! Escrow funds released to seller.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Admin Cancel Stuck Order CRUD
+  async function handleCancelOrder(orderId: number) {
+    if (!confirm(`Cancel Order #${orderId} and return reserved stock to catalog?`)) return;
+    setBusy(`order-${orderId}`);
+    setError('');
+    try {
+      await api(`/api/market/orders/${orderId}`, 'POST', { action: 'cancel' });
+      triggerAdminSuccess(`Order #${orderId} CANCELLED. Reserved stock replenished.`);
+      remote.reload();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  // Calculated simulation amounts
+  const parsedRate = parseFloat(escrowFeeInput);
+  const activeRate = !isNaN(parsedRate) ? parsedRate : (remote.data?.platformSettings?.escrowFeeRate ?? 8);
+  const simFee = Math.round((samplePrice * activeRate) / 100);
+  const simNet = Math.max(0, samplePrice - simFee);
+
   return (
-    <div className="container">
+    <div className={`container ${user.role === 'admin' ? 'admin-container' : ''}`}>
       <Heading
         eyebrow={
           user.role === 'buyer'
@@ -1863,6 +2125,18 @@ function Workspace({ user }: { user: User }) {
         }
       />
 
+      {adminSuccess && (
+        <div className="notice success" role="alert" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div>
+            <strong>Action Successful</strong>
+            <p style={{ margin: '4px 0 0', fontSize: '13px' }}>{adminSuccess}</p>
+          </div>
+          <span style={{ fontSize: '11px', color: 'var(--green)', padding: '4px 10px', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid var(--green)', borderRadius: '12px', whiteSpace: 'nowrap', fontWeight: 600 }}>
+            Auto-closing in {cooldownSeconds}s
+          </span>
+        </div>
+      )}
+
       {conflictMsg && (
         <div className="notice conflict" role="alert">
           <div>
@@ -1878,91 +2152,1039 @@ function Workspace({ user }: { user: User }) {
       <Errors error={error} />
 
       <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
-        {/* Admin Platform Overview */}
+        {/* ========================================================= */}
+        {/* ADMIN WORKBENCH - WIDE STICKY SIDEBAR LAYOUT                */}
+        {/* ========================================================= */}
         {user.role === 'admin' && (
-          <section className="workspace-section">
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">PLATFORM OWNER REVENUE & MONETIZATION</span>
-                <h2>Silicon Trading Financial Performance</h2>
+          <div className="admin-workbench-layout">
+            {/* Sticky Cyber-Industrial Sidebar Navigation (Eliminates scrolling to switch tabs) */}
+            <aside className="admin-sidebar">
+              <div className="admin-sidebar-header">
+                <div className="admin-sidebar-status">
+                  <span className="admin-status-dot" />
+                  <span className="admin-status-text">Admin Console</span>
+                </div>
+                <div className="admin-sidebar-title">
+                  <h3>Command Hub</h3>
+                </div>
               </div>
-              <span className="badge-rate">Active Take-Rate: {remote.data?.platformStats?.commissionRate ?? 8}%</span>
-            </div>
-            <div className="workspace-stats four">
-              <article>
-                <span>PLATFORM REVENUE</span>
-                <strong className="green">{money(remote.data?.platformStats?.totalPlatformRevenue ?? 0)}</strong>
-                <p>8% transaction commission</p>
-              </article>
-              <article>
-                <span>SETTLED REVENUE</span>
-                <strong>{money(remote.data?.platformStats?.completedRevenue ?? 0)}</strong>
-                <p>From completed orders</p>
-              </article>
-              <article>
-                <span>ESCROWED CUT</span>
-                <strong>{money(remote.data?.platformStats?.pendingRevenue ?? 0)}</strong>
-                <p>In 72h inspection / transit</p>
-              </article>
-              <article>
-                <span>PLATFORM GMV</span>
-                <strong>{money(remote.data?.platformStats?.totalGmv ?? 0)}</strong>
-                <p>{remote.data?.platformStats?.orderCount ?? 0} total platform orders</p>
-              </article>
-            </div>
-          </section>
-        )}
 
-        {user.role === 'admin' && (
-          <section className="workspace-section">
-            <div className="section-heading">
-              <h2>Platform Transaction Ledger</h2>
-              <span>{remote.data?.allOrders?.length ?? 0} orders</span>
-            </div>
-            {remote.data?.allOrders?.length ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order / Component</th>
-                      <th>Buyer & Seller</th>
-                      <th>Gross GMV</th>
-                      <th>Platform Cut (8%)</th>
-                      <th>Seller Net</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {remote.data.allOrders.map(o => (
-                      <tr key={o.id}>
-                        <td>
-                          <strong>#{o.id} · {o.listingSnapshot.title}</strong>
-                          <div className="muted">{date(o.createdAt)} · Qty: {o.quantity}</div>
-                        </td>
-                        <td>
-                          <div>Buyer: <strong>{o.buyer.name}</strong></div>
-                          <div className="muted">Seller: {o.listing.seller.name}</div>
-                        </td>
-                        <td><strong>{money(o.totalCentavos)}</strong></td>
-                        <td><span className="fee-cut">+{money(o.platformFeeCentavos)}</span></td>
-                        <td>{money(o.sellerPayoutCentavos)}</td>
-                        <td><span className={`status status-${o.status}`}>{o.status}</span></td>
-                        <td>
-                          <Link className="button outline small" href={`/orders/${o.id}`}>
-                            Inspect order ↗
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <nav className="admin-sidebar-nav">
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'overview' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('overview')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <Compass size={16} />
+                    <span>Platform Overview</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'financials' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('financials')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <Percent size={16} />
+                    <span>Escrow Take-Rate</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'verification' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('verification')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <ShieldCheck size={16} />
+                    <span>Seller Verification</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'listings' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('listings')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <Sparkles size={16} />
+                    <span>Listings &amp; Verified Pass</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'disputes' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('disputes')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <Package size={16} />
+                    <span>Orders &amp; Disputes</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className={`admin-sidebar-btn ${adminTab === 'users' ? 'active' : ''}`}
+                  onClick={() => setAdminTab('users')}
+                >
+                  <div className="admin-sidebar-btn-label">
+                    <Users size={16} />
+                    <span>User Accounts &amp; Bans</span>
+                  </div>
+                </button>
+              </nav>
+            </aside>
+
+            {/* Main Workbench Workspace Display Area */}
+            <main className="admin-main-content">
+              {/* TAB 0: Platform Overview (Default Admin Landing Page) */}
+              {adminTab === 'overview' && (
+                <div>
+                  {/* 4 Core KPI Stat Cards */}
+                  <div className="workspace-stats four" style={{ marginTop: 0, marginBottom: '32px' }}>
+                    <article>
+                      <span>GROSS ESCROW GMV</span>
+                      <strong className="green">{money(remote.data?.platformStats?.totalGmv ?? 0)}</strong>
+                      <p>Total circular electronics transacted through escrow</p>
+                    </article>
+                    <article>
+                      <span>PLATFORM REVENUE</span>
+                      <strong>{money(remote.data?.platformStats?.totalPlatformRevenue ?? 0)}</strong>
+                      <p>{money(remote.data?.platformStats?.completedRevenue ?? 0)} settled · {money(remote.data?.platformStats?.pendingRevenue ?? 0)} in escrow</p>
+                    </article>
+                    <article>
+                      <span>CIRCULAR INVENTORY</span>
+                      <strong>{remote.data?.allListings?.filter(l => l.isActive).length ?? 0} <small style={{ fontSize: '16px', fontWeight: 500, color: 'var(--muted)' }}>Active</small></strong>
+                      <p>{remote.data?.allListings?.filter(l => l.verifiedPass).length ?? 0} Certified Verified Pass · {remote.data?.allListings?.filter(l => !l.isActive).length ?? 0} paused</p>
+                    </article>
+                    <article>
+                      <span>REPAIR NETWORK</span>
+                      <strong>{remote.data?.allUsers?.length ?? 0} <small style={{ fontSize: '16px', fontWeight: 500, color: 'var(--muted)' }}>Users</small></strong>
+                      <p>{remote.data?.sellers?.filter(s => s.sellerVerified).length ?? 0} Verified Sellers · {remote.data?.allUsers?.filter(u => u.isBanned).length ?? 0} banned</p>
+                    </article>
+                  </div>
+
+                  {/* Administrative Operations Hub (Quick Jump Cards) */}
+                  <div className="section-heading" style={{ marginTop: '32px' }}>
+                    <div>
+                      <span className="eyebrow">ADMINISTRATIVE ACTION HUB</span>
+                      <h2>Workbench Operations &amp; Moderation</h2>
+                    </div>
+                    <span className="muted" style={{ fontSize: '12px' }}>Click any domain below to jump directly to controls</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '36px' }}>
+                    <div
+                      className="product-card"
+                      style={{ padding: '20px', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--line)' }}
+                      onClick={() => setAdminTab('financials')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: 'var(--green)' }}>
+                        <Percent size={18} />
+                        <strong style={{ fontSize: '15px' }}>Escrow Fees &amp; Margins</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', lineHeight: '1.5' }}>
+                        Configure standard 8% take-rate, test seller tier fee waivers, and run interactive escrow payout simulations.
+                      </p>
+                      <div style={{ marginTop: '14px', fontSize: '12px', fontWeight: 600, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Configure Escrow Fees <ArrowRight size={13} />
+                      </div>
+                    </div>
+
+                    <div
+                      className="product-card"
+                      style={{ padding: '20px', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--line)' }}
+                      onClick={() => setAdminTab('verification')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: 'var(--green)' }}>
+                        <ShieldCheck size={18} />
+                        <strong style={{ fontSize: '15px' }}>Seller Verification (CRUD)</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', lineHeight: '1.5' }}>
+                        Review repair workshop credentials, approve verified refurbisher badges, or revoke status instantly.
+                      </p>
+                      <div style={{ marginTop: '14px', fontSize: '12px', fontWeight: 600, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Review {remote.data?.sellers?.filter(s => !s.sellerVerified).length ?? 0} Pending Sellers <ArrowRight size={13} />
+                      </div>
+                    </div>
+
+                    <div
+                      className="product-card"
+                      style={{ padding: '20px', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--line)' }}
+                      onClick={() => setAdminTab('listings')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: 'var(--green)' }}>
+                        <Sparkles size={18} />
+                        <strong style={{ fontSize: '15px' }}>Listings &amp; Verified Pass</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', lineHeight: '1.5' }}>
+                        Inspect donor boards, micro-soldered IC diagnostics, audit component photos, and grant Package 2 Verified Pass.
+                      </p>
+                      <div style={{ marginTop: '14px', fontSize: '12px', fontWeight: 600, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Moderate {remote.data?.allListings?.length ?? 0} Listings <ArrowRight size={13} />
+                      </div>
+                    </div>
+
+                    <div
+                      className="product-card"
+                      style={{ padding: '20px', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--line)' }}
+                      onClick={() => setAdminTab('disputes')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: 'var(--green)' }}>
+                        <Package size={18} />
+                        <strong style={{ fontSize: '15px' }}>Escrow Orders &amp; Disputes</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', lineHeight: '1.5' }}>
+                        Audit real-time courier tracking waybills, 72-hour inspection countdowns, and resolve buyer/seller disputes.
+                      </p>
+                      <div style={{ marginTop: '14px', fontSize: '12px', fontWeight: 600, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Inspect {remote.data?.allOrders?.length ?? 0} Platform Orders <ArrowRight size={13} />
+                      </div>
+                    </div>
+
+                    <div
+                      className="product-card"
+                      style={{ padding: '20px', cursor: 'pointer', transition: 'all 0.2s ease', border: '1px solid var(--line)' }}
+                      onClick={() => setAdminTab('users')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', color: '#f59e0b' }}>
+                        <Users size={18} />
+                        <strong style={{ fontSize: '15px' }}>User Moderation &amp; Bans</strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', lineHeight: '1.5' }}>
+                        Issue formal warnings, ban fraudulent actors (auto-pauses their listings), unban accounts, and assign tiers.
+                      </p>
+                      <div style={{ marginTop: '14px', fontSize: '12px', fontWeight: 600, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        Moderate {remote.data?.allUsers?.length ?? 0} User Accounts <ArrowRight size={13} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Platform Orders & Escrow Audit */}
+                  <div className="section-heading">
+                    <div>
+                      <span className="eyebrow">TRANSACTION AUDIT</span>
+                      <h2>Recent Escrow Orders</h2>
+                    </div>
+                    <button type="button" className="button outline small" onClick={() => setAdminTab('disputes')}>
+                      View All {remote.data?.allOrders?.length ?? 0} Orders →
+                    </button>
+                  </div>
+
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Order</th>
+                          <th>Component Listing</th>
+                          <th>Buyer</th>
+                          <th>Seller</th>
+                          <th>Total (Escrow)</th>
+                          <th>Platform Fee</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(remote.data?.allOrders || []).slice(0, 6).map(o => (
+                          <tr key={o.id}>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <strong>#{o.id}</strong>
+                              <div className="muted">{date(o.createdAt)}</div>
+                            </td>
+                            <td style={{ maxWidth: '300px' }}>
+                              <strong style={{ display: 'block', lineHeight: 1.35 }}>{o.listing.title}</strong>
+                              <div className="muted">{o.listing.category} · {o.listing.brand}</div>
+                            </td>
+                            <td style={{ maxWidth: '180px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{o.buyer.name}</div>
+                              <div className="muted" style={{ fontSize: '11.5px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.buyer.email}</div>
+                            </td>
+                            <td style={{ maxWidth: '180px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600 }}>{o.listing.seller.name}</div>
+                              <div className="muted" style={{ fontSize: '11.5px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.listing.seller.email}</div>
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap' }}><strong>{money(o.totalCentavos)}</strong></td>
+                            <td style={{ whiteSpace: 'nowrap' }}><span className="badge-rate">{money(o.platformFeeCentavos)}</span></td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <span className={`status status-${o.status}`}>
+                                {o.status.toUpperCase()}
+                              </span>
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                className="button outline small"
+                                style={{ whiteSpace: 'nowrap' }}
+                                onClick={() => setAdminTab('disputes')}
+                              >
+                                Inspect →
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {(!remote.data?.allOrders || remote.data.allOrders.length === 0) && (
+                          <tr>
+                            <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)' }}>
+                              No orders recorded on the platform yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 1: Escrow Fees & Financial Performance */}
+            {adminTab === 'financials' && (
+              <div>
+                {/* Live Escrow Fee Configurator & Simulator Card */}
+                <div className="admin-fee-card">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                      <span className="eyebrow" style={{ color: 'var(--green)' }}>ESCROW TAKE-RATE ENGINE</span>
+                      <h3 style={{ margin: '4px 0 6px' }}>Platform Escrow Fee Configuration</h3>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', maxWidth: '640px' }}>
+                        Set how much escrow fee Silicon Trading retains from each transaction. Standard Refurbisher accounts pay this base rate, Pro tier pays 5.0%, and Enterprise tier receives 0% (fee waived).
+                      </p>
+                    </div>
+                    <span className="badge-rate" style={{ fontSize: '13px' }}>
+                      Active Base Fee: {remote.data?.platformSettings?.escrowFeeRate ?? 8}%
+                    </span>
+                  </div>
+
+                  <div className="admin-fee-grid">
+                    <form onSubmit={handleUpdateEscrowFee} className="form" style={{ margin: 0 }}>
+                      <label style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Base Escrow Fee Rate (%)
+                      </label>
+                      <div className="admin-fee-input-wrap">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          className="admin-rate-input"
+                          value={escrowFeeInput}
+                          onChange={e => setEscrowFeeInput(e.target.value)}
+                          required
+                        />
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--muted)' }}>%</span>
+                        <button
+                          type="submit"
+                          className="button dark"
+                          disabled={busy === 'escrow-fee'}
+                          style={{ padding: '8px 18px', fontSize: '13px' }}
+                        >
+                          {busy === 'escrow-fee' ? 'Saving…' : 'Save Escrow Rate →'}
+                        </button>
+                      </div>
+                      <p className="muted" style={{ fontSize: '12px', marginTop: '8px' }}>
+                        Default: 8.0%. Setting this adjusts the escrow deduction for all newly created reservations and cart checkouts.
+                      </p>
+                    </form>
+
+                    {/* Live Fee Calculator Simulator */}
+                    <div className="admin-sim-box">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--green)' }}>
+                          Live Escrow Payout Preview
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12px', color: 'var(--muted)' }}>Sample Order: ₱</span>
+                          <input
+                            type="number"
+                            min="100"
+                            step="100"
+                            value={samplePrice}
+                            onChange={e => setSamplePrice(Math.max(100, Number(e.target.value)))}
+                            style={{ width: '80px', padding: '3px 6px', fontSize: '12px', background: 'var(--surface-alt)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', color: 'var(--ink)' }}
+                          />
+                        </div>
+                      </div>
+                      <div className="admin-sim-row">
+                        <span className="muted">Standard Escrow Fee ({activeRate}%):</span>
+                        <strong className="fee-cut" style={{ color: 'var(--green)' }}>+₱{simFee.toLocaleString()}</strong>
+                      </div>
+                      <div className="admin-sim-row">
+                        <span className="muted">Seller Net Payout:</span>
+                        <strong>₱{simNet.toLocaleString()}</strong>
+                      </div>
+                      <div className="admin-sim-row">
+                        <span className="muted">Escrow Inspection Window:</span>
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>72 Hours</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Platform Financial Statistics */}
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">REVENUE &amp; MONETIZATION METRICS</span>
+                    <h2>Financial Performance</h2>
+                  </div>
+                  <span className="badge-rate">Active Take-Rate: {remote.data?.platformStats?.commissionRate ?? 8}%</span>
+                </div>
+                <div className="workspace-stats four">
+                  <article>
+                    <span>PLATFORM REVENUE</span>
+                    <strong className="green">{money(remote.data?.platformStats?.totalPlatformRevenue ?? 0)}</strong>
+                    <p>{remote.data?.platformStats?.commissionRate ?? 8}% total escrow cuts</p>
+                  </article>
+                  <article>
+                    <span>SETTLED REVENUE</span>
+                    <strong>{money(remote.data?.platformStats?.completedRevenue ?? 0)}</strong>
+                    <p>From completed orders</p>
+                  </article>
+                  <article>
+                    <span>ESCROWED CUT</span>
+                    <strong>{money(remote.data?.platformStats?.pendingRevenue ?? 0)}</strong>
+                    <p>In 72h inspection / transit</p>
+                  </article>
+                  <article>
+                    <span>PLATFORM GMV</span>
+                    <strong>{money(remote.data?.platformStats?.totalGmv ?? 0)}</strong>
+                    <p>{remote.data?.platformStats?.orderCount ?? 0} total platform orders</p>
+                  </article>
+                </div>
               </div>
-            ) : (
-              <div className="empty">No platform transactions yet.</div>
             )}
-          </section>
-        )}
+
+            {/* TAB 2: Seller Verification (CRUD) */}
+            {adminTab === 'verification' && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">TECHNICIAN &amp; WORKSHOP AUDIT</span>
+                    <h2>Seller Verification Control Center</h2>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <span className="badge-rate" style={{ background: 'rgba(16, 185, 129, 0.15)', color: 'var(--green)' }}>
+                      Verified: {remote.data?.sellers.filter(s => s.sellerVerified).length ?? 0}
+                    </span>
+                    <span className="badge-rate" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#eab308' }}>
+                      Pending: {remote.data?.sellers.filter(s => !s.sellerVerified).length ?? 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="admin-toolbar">
+                  <div className="admin-toolbar-search">
+                    <Search size={14} color="var(--muted)" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Search seller by name, email, or workshop location…"
+                      value={verificationSearch}
+                      onChange={e => setVerificationSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="admin-toolbar-filters">
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${verificationFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setVerificationFilter('all')}
+                    >
+                      All ({remote.data?.sellers.length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${verificationFilter === 'verified' ? 'active' : ''}`}
+                      onClick={() => setVerificationFilter('verified')}
+                    >
+                      Verified ({remote.data?.sellers.filter(s => s.sellerVerified).length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${verificationFilter === 'pending' ? 'active' : ''}`}
+                      onClick={() => setVerificationFilter('pending')}
+                    >
+                      Pending Review ({remote.data?.sellers.filter(s => !s.sellerVerified).length ?? 0})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Seller Verification Table */}
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Seller / Technician</th>
+                        <th>Workshop Location</th>
+                        <th>Tier</th>
+                        <th>Active Stock</th>
+                        <th>Verification Status</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Admin CRUD Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {remote.data?.sellers
+                        .filter(s => {
+                          if (verificationFilter === 'verified') return s.sellerVerified;
+                          if (verificationFilter === 'pending') return !s.sellerVerified;
+                          return true;
+                        })
+                        .filter(s => {
+                          if (!verificationSearch.trim()) return true;
+                          const q = verificationSearch.toLowerCase();
+                          return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.location.toLowerCase().includes(q);
+                        })
+                        .map(s => (
+                          <tr key={s.id}>
+                            <td>
+                              <strong>{s.name}</strong>
+                              <div className="muted">{s.email} {s.phone ? `• ${s.phone}` : ''}</div>
+                            </td>
+                            <td>{s.location || <span className="muted">Not specified</span>}</td>
+                            <td>
+                              <span style={{ textTransform: 'uppercase', fontSize: '11px', fontWeight: 700 }}>
+                                {s.tier || 'Starter'}
+                              </span>
+                            </td>
+                            <td>
+                              <strong>{s.activeListingsCount ?? 0}</strong> listings
+                            </td>
+                            <td>
+                              <span className={`status ${s.sellerVerified ? 'status-completed' : 'status-reserved'}`}>
+                                {s.sellerVerified ? '✓ Verified Partner' : '⏳ Pending Review'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div className="admin-actions-cell">
+                                <button
+                                  type="button"
+                                  className={`button small ${s.sellerVerified ? 'outline' : 'dark'}`}
+                                  disabled={busy === `verify-${s.id}`}
+                                  onClick={() => handleVerifySeller(s.id, !s.sellerVerified)}
+                                >
+                                  {busy === `verify-${s.id}`
+                                    ? 'Updating…'
+                                    : s.sellerVerified
+                                    ? 'Revoke Verification'
+                                    : '✓ Approve & Verify'}
+                                </button>
+                                {s.tier !== 'pro' && (
+                                  <button
+                                    type="button"
+                                    className="button outline small"
+                                    title="Set B2B tier to Pro"
+                                    disabled={busy === `user-${s.id}`}
+                                    onClick={() => handleAdminUpdateUser(s.id, { tier: 'pro' })}
+                                  >
+                                    Set Pro
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Marketplace Listings & Verified Pass (CRUD) */}
+            {adminTab === 'listings' && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">CATALOG AUDIT &amp; QUALITY CERTIFICATION</span>
+                    <h2>Marketplace Listings &amp; Verified Pass</h2>
+                  </div>
+                  <span className="badge-rate">
+                    {remote.data?.allListings?.length ?? 0} Total Platform Listings
+                  </span>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="admin-toolbar">
+                  <div className="admin-toolbar-search">
+                    <Search size={14} color="var(--muted)" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Search listings by title, seller, brand, or model…"
+                      value={listingsSearch}
+                      onChange={e => setListingsSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="admin-toolbar-filters">
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${listingsFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setListingsFilter('all')}
+                    >
+                      All ({remote.data?.allListings?.length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${listingsFilter === 'verified_pass' ? 'active' : ''}`}
+                      onClick={() => setListingsFilter('verified_pass')}
+                    >
+                      Verified Pass ({remote.data?.allListings?.filter(l => l.verifiedPass).length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${listingsFilter === 'paused' ? 'active' : ''}`}
+                      onClick={() => setListingsFilter('paused')}
+                    >
+                      Paused ({remote.data?.allListings?.filter(l => !l.isActive).length ?? 0})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Listings Moderation Table */}
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Component Listing</th>
+                        <th>Seller</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Verified Pass Badge</th>
+                        <th>Visibility</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Admin CRUD Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {remote.data?.allListings
+                        ?.filter(l => {
+                          if (listingsFilter === 'verified_pass') return l.verifiedPass;
+                          if (listingsFilter === 'paused') return !l.isActive;
+                          return true;
+                        })
+                        .filter(l => {
+                          if (!listingsSearch.trim()) return true;
+                          const q = listingsSearch.toLowerCase();
+                          return l.title.toLowerCase().includes(q) || l.model.toLowerCase().includes(q) || l.seller?.name.toLowerCase().includes(q);
+                        })
+                        .map(l => (
+                          <tr key={l.id}>
+                            <td>
+                              <Link href={`/parts/${l.id}`}>
+                                <strong>#{l.id} — {l.title}</strong>
+                              </Link>
+                              <div className="muted">{l.model} • {l.condition}</div>
+                            </td>
+                            <td>
+                              <div><strong>{l.seller?.name}</strong></div>
+                              <div className="muted">{l.seller?.location}</div>
+                            </td>
+                            <td><strong>{money(l.priceCentavos)}</strong></td>
+                            <td>{l.quantity} units</td>
+                            <td>
+                              <span className={`status ${l.verifiedPass ? 'status-completed' : 'status-reserved'}`}>
+                                {l.verifiedPass ? '★ VERIFIED PASS' : 'Standard'}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status ${l.isActive ? 'status-completed' : 'status-cancelled'}`}>
+                                {l.isActive ? 'Published' : 'Paused'}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div className="admin-actions-cell">
+                                <button
+                                  type="button"
+                                  className={`button small ${l.verifiedPass ? 'outline' : 'dark'}`}
+                                  disabled={busy === `pass-${l.id}`}
+                                  onClick={() => handleToggleVerifiedPass(l)}
+                                  title="Toggle Refurbisher Verified Pass certification badge"
+                                >
+                                  {busy === `pass-${l.id}`
+                                    ? 'Updating…'
+                                    : l.verifiedPass
+                                    ? 'Revoke Pass'
+                                    : '★ Certify Pass'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button outline small"
+                                  disabled={busy === `vis-${l.id}`}
+                                  onClick={() => handleToggleListingVisibility(l)}
+                                >
+                                  {busy === `vis-${l.id}` ? '…' : l.isActive ? 'Pause' : 'Resume'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button outline small"
+                                  style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+                                  disabled={busy === `del-${l.id}`}
+                                  onClick={() => handleDeleteListing(l.id)}
+                                >
+                                  {busy === `del-${l.id}` ? '…' : 'Delist'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: Escrow Orders & Dispute Resolution */}
+            {adminTab === 'disputes' && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">ESCROW &amp; DISPUTE RESOLUTION</span>
+                    <h2>Platform Orders &amp; Disputes</h2>
+                  </div>
+                  <span className="badge-rate">{remote.data?.allOrders?.length ?? 0} Total Orders</span>
+                </div>
+
+                {/* Filter Bar */}
+                <div className="admin-toolbar">
+                  <div className="admin-toolbar-filters">
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${ordersFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setOrdersFilter('all')}
+                    >
+                      All ({remote.data?.allOrders?.length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${ordersFilter === 'disputed' ? 'active' : ''}`}
+                      onClick={() => setOrdersFilter('disputed')}
+                    >
+                      Disputed ({remote.data?.allOrders?.filter(o => o.status === 'disputed').length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${ordersFilter === 'inspection' ? 'active' : ''}`}
+                      onClick={() => setOrdersFilter('inspection')}
+                    >
+                      72h Inspection ({remote.data?.allOrders?.filter(o => o.status === 'inspection').length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${ordersFilter === 'completed' ? 'active' : ''}`}
+                      onClick={() => setOrdersFilter('completed')}
+                    >
+                      Completed ({remote.data?.allOrders?.filter(o => o.status === 'completed').length ?? 0})
+                    </button>
+                  </div>
+                </div>
+
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Order / Component</th>
+                        <th>Buyer &amp; Seller</th>
+                        <th>Gross GMV</th>
+                        <th>Platform Fee</th>
+                        <th>Seller Net</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Admin CRUD Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {remote.data?.allOrders
+                        ?.filter(o => {
+                          if (ordersFilter === 'disputed') return o.status === 'disputed';
+                          if (ordersFilter === 'inspection') return o.status === 'inspection';
+                          if (ordersFilter === 'completed') return o.status === 'completed';
+                          return true;
+                        })
+                        .map(o => (
+                          <tr key={o.id}>
+                            <td>
+                              <strong>#{o.id} — {o.listingSnapshot.title}</strong>
+                              <div className="muted">{date(o.createdAt)} • Qty: {o.quantity}</div>
+                              {o.dispute && (
+                                <div style={{ fontSize: '11.5px', color: '#ef4444', marginTop: '4px' }}>
+                                  <strong>Dispute:</strong> {o.dispute}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <div>Buyer: <strong>{o.buyer.name}</strong></div>
+                              <div className="muted">Seller: {o.listing.seller.name}</div>
+                            </td>
+                            <td><strong>{money(o.totalCentavos)}</strong></td>
+                            <td><span className="fee-cut">+{money(o.platformFeeCentavos)}</span></td>
+                            <td>{money(o.sellerPayoutCentavos)}</td>
+                            <td><span className={`status status-${o.status}`}>{o.status}</span></td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div className="admin-actions-cell">
+                                {o.status === 'disputed' && (
+                                  <button
+                                    type="button"
+                                    className="button dark small"
+                                    disabled={busy === `order-${o.id}`}
+                                    onClick={() => handleResolveDispute(o.id)}
+                                  >
+                                    {busy === `order-${o.id}` ? 'Resolving…' : '✓ Resolve & Release'}
+                                  </button>
+                                )}
+                                {o.status === 'reserved' && (
+                                  <button
+                                    type="button"
+                                    className="button outline small"
+                                    style={{ color: '#ef4444' }}
+                                    disabled={busy === `order-${o.id}`}
+                                    onClick={() => handleCancelOrder(o.id)}
+                                  >
+                                    {busy === `order-${o.id}` ? '…' : 'Cancel & Restock'}
+                                  </button>
+                                )}
+                                <Link className="button outline small" href={`/orders/${o.id}`}>
+                                  Inspect →
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: User Accounts & Roles (CRUD) */}
+            {adminTab === 'users' && (
+              <div>
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">AUTHENTICATION &amp; ACCOUNTS</span>
+                    <h2>Registered Accounts Management</h2>
+                  </div>
+                  <span className="badge-rate">{remote.data?.allUsers?.length ?? 0} Registered Users</span>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div className="admin-toolbar">
+                  <div className="admin-toolbar-search">
+                    <Search size={14} color="var(--muted)" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Search accounts by name or email…"
+                      value={usersSearch}
+                      onChange={e => setUsersSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="admin-toolbar-filters">
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${usersRoleFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setUsersRoleFilter('all')}
+                    >
+                      All ({remote.data?.allUsers?.length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${usersRoleFilter === 'seller' ? 'active' : ''}`}
+                      onClick={() => setUsersRoleFilter('seller')}
+                    >
+                      Sellers ({remote.data?.allUsers?.filter(u => u.role === 'seller').length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${usersRoleFilter === 'buyer' ? 'active' : ''}`}
+                      onClick={() => setUsersRoleFilter('buyer')}
+                    >
+                      Buyers ({remote.data?.allUsers?.filter(u => u.role === 'buyer').length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${usersRoleFilter === 'warned' ? 'active' : ''}`}
+                      onClick={() => setUsersRoleFilter('warned')}
+                      style={{ color: usersRoleFilter === 'warned' ? 'var(--green)' : '#f59e0b' }}
+                    >
+                      ⚠️ Warned ({remote.data?.allUsers?.filter(u => (u.warningCount || 0) > 0).length ?? 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-filter-pill ${usersRoleFilter === 'banned' ? 'active' : ''}`}
+                      onClick={() => setUsersRoleFilter('banned')}
+                      style={{ color: usersRoleFilter === 'banned' ? 'var(--green)' : '#ef4444' }}
+                    >
+                      🚫 Banned ({remote.data?.allUsers?.filter(u => u.isBanned).length ?? 0})
+                    </button>
+                  </div>
+                </div>
+
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>User Account</th>
+                        <th>Role &amp; Tier</th>
+                        <th>Account Moderation Status</th>
+                        <th>Workshop Location</th>
+                        <th>Verification</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Admin CRUD Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {remote.data?.allUsers
+                        ?.filter(u => {
+                          if (usersRoleFilter === 'seller') return u.role === 'seller';
+                          if (usersRoleFilter === 'buyer') return u.role === 'buyer';
+                          if (usersRoleFilter === 'warned') return (u.warningCount || 0) > 0;
+                          if (usersRoleFilter === 'banned') return !!u.isBanned;
+                          return true;
+                        })
+                        .filter(u => {
+                          if (!usersSearch.trim()) return true;
+                          const q = usersSearch.toLowerCase();
+                          return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+                        })
+                        .map(u => (
+                          <tr key={u.id} style={{ opacity: u.isBanned ? 0.75 : 1 }}>
+                            <td>
+                              <strong>{u.name}</strong>
+                              <div className="muted">{u.email}</div>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span className={`user-role-badge role-${u.role}`}>{u.role}</span>
+                                <span style={{ textTransform: 'uppercase', fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)' }}>
+                                  Tier: {u.tier || 'starter'}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              {u.isBanned ? (
+                                <div>
+                                  <span className="status status-cancelled" style={{ color: '#ef4444', borderColor: '#ef4444', background: 'rgba(239, 68, 68, 0.12)', fontSize: '11px', fontWeight: 700 }}>
+                                    🚫 BANNED
+                                  </span>
+                                  {u.banReason && (
+                                    <div style={{ fontSize: '11.5px', color: '#ef4444', marginTop: '4px', maxWidth: '220px', lineHeight: '1.3' }}>
+                                      Reason: {u.banReason}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (u.warningCount || 0) > 0 ? (
+                                <div>
+                                  <span className="status" style={{ color: '#f59e0b', borderColor: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)', fontSize: '11px', fontWeight: 700 }}>
+                                    ⚠️ {u.warningCount} Warning{(u.warningCount || 0) > 1 ? 's' : ''}
+                                  </span>
+                                  {u.lastWarning && (
+                                    <div style={{ fontSize: '11.5px', color: '#f59e0b', marginTop: '4px', maxWidth: '220px', lineHeight: '1.3' }}>
+                                      Note: {u.lastWarning}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="status status-completed" style={{ fontSize: '11px' }}>
+                                  ✓ Good Standing
+                                </span>
+                              )}
+                            </td>
+                            <td>{u.location || <span className="muted">—</span>}</td>
+                            <td>
+                              {u.role === 'seller' ? (
+                                <span className={`status ${u.sellerVerified ? 'status-completed' : 'status-reserved'}`}>
+                                  {u.sellerVerified ? '✓ Verified' : 'Unverified'}
+                                </span>
+                              ) : (
+                                <span className="muted">—</span>
+                              )}
+                            </td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div className="admin-actions-cell">
+                                {u.role !== 'admin' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="button outline small"
+                                      style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+                                      disabled={busy === `user-${u.id}`}
+                                      onClick={() => handleWarnUser(u)}
+                                    >
+                                      ⚠️ Warn
+                                    </button>
+
+                                    {u.isBanned ? (
+                                      <button
+                                        type="button"
+                                        className="button small"
+                                        style={{ background: 'var(--green)', color: '#000', borderColor: 'var(--green)', fontWeight: 700 }}
+                                        disabled={busy === `user-${u.id}`}
+                                        onClick={() => handleUnbanUser(u)}
+                                      >
+                                        ✓ Lift Ban
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="button outline small"
+                                        style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                                        disabled={busy === `user-${u.id}`}
+                                        onClick={() => handleBanUser(u)}
+                                      >
+                                        🚫 Ban
+                                      </button>
+                                    )}
+
+                                    {(u.warningCount || 0) > 0 && (
+                                      <button
+                                        type="button"
+                                        className="button outline small"
+                                        disabled={busy === `user-${u.id}`}
+                                        onClick={() => handleClearWarnings(u)}
+                                      >
+                                        Clear Warnings
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      className="button outline small"
+                                      disabled={busy === `user-${u.id}`}
+                                      onClick={() =>
+                                        handleAdminUpdateUser(u.id, {
+                                          role: u.role === 'seller' ? 'buyer' : 'seller',
+                                        })
+                                      }
+                                    >
+                                      {busy === `user-${u.id}`
+                                        ? '…'
+                                        : u.role === 'seller'
+                                        ? 'Make Buyer'
+                                        : 'Make Seller'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="button outline small"
+                                      disabled={busy === `user-${u.id}`}
+                                      onClick={() =>
+                                        handleAdminUpdateUser(u.id, {
+                                          tier: u.tier === 'pro' ? 'enterprise' : u.tier === 'enterprise' ? 'starter' : 'pro',
+                                        })
+                                      }
+                                    >
+                                      Cycle Tier →
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      )}
 
         {/* Seller Balance */}
         {user.role === 'seller' && (
@@ -2226,51 +3448,7 @@ function Workspace({ user }: { user: User }) {
           </section>
         )}
 
-        {/* Admin Seller Verification */}
-        {user.role === 'admin' && (
-          <section className="workspace-section">
-            <h2>Seller verification</h2>
-            <p>Review seller details before changing their verification status.</p>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Seller</th>
-                    <th>Location</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {remote.data?.sellers.map(s => (
-                    <tr key={s.id}>
-                      <td>
-                        <strong>{s.name}</strong>
-                        <div className="muted">{s.email}</div>
-                      </td>
-                      <td>{s.location}</td>
-                      <td>
-                        <span className={`status ${s.sellerVerified ? 'status-completed' : 'status-reserved'}`}>
-                          {s.sellerVerified ? 'Verified' : 'Unverified'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="button outline small"
-                          disabled={Boolean(busy)}
-                          onClick={() => verify(s)}
-                        >
-                          {busy === s.id ? 'Updating…' : s.sellerVerified ? 'Remove verification' : 'Verify seller'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!remote.data?.sellers.length && <div className="empty">No sellers to review.</div>}
-          </section>
-        )}
+
       </Remote>
     </div>
   );

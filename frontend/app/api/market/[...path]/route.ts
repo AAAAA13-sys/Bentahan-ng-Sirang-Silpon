@@ -16,10 +16,37 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     if (method === 'GET' && resource === 'orders' && path.length === 1) return Response.json({ orders: await market.getUserOrders(actor) });
     if (method === 'GET' && resource === 'orders' && path.length === 2 && Number.isSafeInteger(id) && id > 0) return Response.json({ order: await market.getOrder(actor, id) });
     let input: unknown;
-    if (method !== 'GET') { try { input = await request.json(); } catch { throw new MarketError(422, 'A valid JSON body is required.'); } }
+    if (method !== 'GET') { try { input = await request.json(); } catch { input = {}; } }
     if (method === 'POST' && resource === 'cart' && rawId === 'checkout' && path.length === 2) return Response.json(await market.checkoutCart(actor, input));
     if (method === 'POST' && resource === 'listings' && path.length === 1) return Response.json({ listing: await market.createListing(actor, input) }, { status: 201 });
     if (method === 'POST' && resource === 'sellers' && operation === 'verify' && path.length === 3) return Response.json({ user: await market.verifySeller(actor, rawId, input) });
+
+    // Admin Controls API routes
+    if (resource === 'admin') {
+      if (rawId === 'settings' && method === 'POST') {
+        const bps = typeof (input as any)?.escrowFeeBps === 'number'
+          ? (input as any).escrowFeeBps
+          : Math.round(Number((input as any)?.escrowFeeRate ?? 8) * 100);
+        return Response.json({ escrowFeeBps: await market.setPlatformFeeRate(actor, bps) });
+      }
+      if (rawId === 'listings' && path.length >= 4) {
+        const listingId = Number(operation);
+        const action = path[3];
+        if (action === 'verified-pass' && method === 'POST') {
+          return Response.json({ listing: await market.adminToggleVerifiedPass(actor, listingId, input) });
+        }
+        if (action === 'visibility' && method === 'POST') {
+          return Response.json({ listing: await market.adminToggleListingVisibility(actor, listingId, input) });
+        }
+        if ((action === 'delete' && method === 'POST') || method === 'DELETE') {
+          return Response.json({ result: await market.adminDeleteListing(actor, listingId) });
+        }
+      }
+      if (rawId === 'users' && path.length === 3 && method === 'POST') {
+        return Response.json({ user: await market.adminUpdateUser(actor, operation, input) });
+      }
+    }
+
     if (!Number.isSafeInteger(id) || id < 1) throw new MarketError(404, 'Record not found.');
     if (method === 'PUT' && resource === 'listings' && path.length === 2) return Response.json({ listing: await market.updateListing(actor, id, input) });
     if (method === 'PATCH' && resource === 'listings' && operation === 'visibility' && path.length === 3) return Response.json({ listing: await market.visibility(actor, id, input) });
@@ -33,4 +60,4 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     return Response.json({ error: 'Unable to process this request.' }, { status: 500 });
   }
 }
-export { handle as GET, handle as POST, handle as PUT, handle as PATCH };
+export { handle as GET, handle as POST, handle as PUT, handle as PATCH, handle as DELETE };

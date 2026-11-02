@@ -331,6 +331,76 @@ app.post('/api/market/sellers/:id/verify', async (req: ExpRequest, res: ExpRespo
   }
 });
 
+// Admin Controls Endpoints
+app.post('/api/market/admin/settings', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const bps = typeof req.body?.escrowFeeBps === 'number'
+      ? req.body.escrowFeeBps
+      : Math.round(Number(req.body?.escrowFeeRate ?? 8) * 100);
+    const updatedBps = await market.setPlatformFeeRate(actor, bps);
+    res.json({ escrowFeeBps: updatedBps });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/market/admin/listings/:id/verified-pass', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const listing = await market.adminToggleVerifiedPass(actor, Number(req.params.id), req.body);
+    res.json({ listing });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/market/admin/listings/:id/visibility', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const listing = await market.adminToggleListingVisibility(actor, Number(req.params.id), req.body);
+    res.json({ listing });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.all(['/api/market/admin/listings/:id/delete', '/api/market/admin/listings/:id'], async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  if (req.method !== 'POST' && req.method !== 'DELETE') return next();
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const result = await market.adminDeleteListing(actor, Number(req.params.id));
+    res.json({ result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/market/admin/users/:id', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const user = await market.adminUpdateUser(actor, String(req.params.id), req.body);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Universal Centralized Error Handler
 app.use((err: unknown, _req: ExpRequest, res: ExpResponse, _next: NextFunction) => {
   if (err instanceof MarketError) {

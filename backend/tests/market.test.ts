@@ -67,6 +67,28 @@ test('reservation retries, stale edits, actor rules and cancellation preserve mo
   assert.ok(adminWs.platformStats.totalPlatformRevenue > 0);
   assert.ok(adminWs.platformStats.completedRevenue > 0);
   assert.ok(adminWs.allOrders.length >= 2);
+  assert.ok((adminWs as any).allListings.length >= 1);
+  assert.ok((adminWs as any).allUsers.length >= 2);
+  assert.equal((adminWs as any).platformSettings.escrowFeeRate, 8);
+
+  // Admin Controls CRUD: Escrow Fee, Verified Pass, Visibility, and User Tier
+  const updatedFeeBps = await market.setPlatformFeeRate(adminActor, 1000);
+  assert.equal(updatedFeeBps, 1000);
+  assert.equal(await market.getPlatformFeeRate(), 1000);
+  // Escrow rate supports full 0-100% range (0 to 10000 bps)
+  const hundredPercent = await market.setPlatformFeeRate(adminActor, 10000);
+  assert.equal(hundredPercent, 10000);
+  const zeroPercent = await market.setPlatformFeeRate(adminActor, 0);
+  assert.equal(zeroPercent, 0);
+  await assert.rejects(async () => market.setPlatformFeeRate(adminActor, 10001), (err: any) => err.status === 422);
+  await assert.rejects(async () => market.setPlatformFeeRate(adminActor, -1), (err: any) => err.status === 422);
+  const certifiedListing = await market.adminToggleVerifiedPass(adminActor, part.id, { verifiedPass: true });
+  assert.equal(certifiedListing.verifiedPass, true);
+  const pausedListing = await market.adminToggleListingVisibility(adminActor, part.id, { isActive: false });
+  assert.equal(pausedListing.isActive, false);
+  const upgradedUser = await market.adminUpdateUser(adminActor, buyer.id, { tier: 'pro' });
+  assert.equal(upgradedUser.tier, 'pro');
+  await market.setPlatformFeeRate(adminActor, 800);
 
   const sellerWs = await market.workspace(seller);
   assert.ok(sellerWs.sellerStats.grossSales > 0);
@@ -180,4 +202,63 @@ test('cart checkout, verified pass listings, vouchers, and B2B buyer tier fee ra
   // getUserOrders retrieves all user orders
   const proOrders = await market.getUserOrders(proBuyer);
   assert.ok(proOrders.some(o => o.id === cartOrder.id));
+});
+
+test('admin can warn, ban, unban and clear warnings for users with automatic listing pausing', async () => {
+  const { getDb } = await import('../lib/db');
+  const { user, listing } = await import('../db/schema');
+  const market = await import('../lib/market');
+  const { eq } = await import('drizzle-orm');
+  const db = await getDb();
+
+  const adminActor = { id: 'admin-actor', name: 'Admin', email: 'admin@silicon.ph', role: 'admin' };
+  const rogueSeller = { id: 'rogue-seller', name: 'Rogue Refurbisher', email: 'rogue@test.invalid', role: 'seller', location: 'Quiapo' };
+  await db.insert(user).values([adminActor, rogueSeller]);
+
+  const rogueListing = await market.createListing(rogueSeller, {
+    title: 'Suspicious harvested iPhone 13 logic board',
+    brand: 'Apple',
+    model: 'iPhone 13',
+    category: 'Donor boards',
+    condition: 'For harvesting',
+    boardClass: 'Grade A (Complete / All ICs)',
+    storageGb: '128GB',
+    ramGb: '4GB',
+    description: 'Suspicious reclaimed iPhone 13 donor board for harvest testing with all original chips.',
+    diagnostics: 'Visual check passed on initial inspection under microscope.',
+    price: '999.00',
+    quantity: 3,
+    minimumQuantity: 1
+  });
+  assert.equal(rogueListing.isActive, true);
+
+  // 1. Issue warning
+  const warned = await market.adminUpdateUser(adminActor, rogueSeller.id, {
+    action: 'warn',
+    warningReason: 'Misleading component diagnostic report: PMIC missing'
+  });
+  assert.equal(warned.warningCount, 1);
+  assert.equal(warned.lastWarning, 'Misleading component diagnostic report: PMIC missing');
+  assert.equal(warned.isBanned, false);
+
+  // 2. Issue ban -> automatically pauses active listings
+  const banned = await market.adminUpdateUser(adminActor, rogueSeller.id, {
+    action: 'ban',
+    banReason: 'Fraudulent component: cracked PCB substrate'
+  });
+  assert.equal(banned.isBanned, true);
+  assert.equal(banned.banReason, 'Fraudulent component: cracked PCB substrate');
+
+  const listingAfterBan = (await db.select().from(listing).where(eq(listing.id, rogueListing.id)))[0];
+  assert.equal(listingAfterBan.isActive, false, 'Seller listings should be automatically paused upon ban');
+
+  // 3. Lift ban / unban
+  const unbanned = await market.adminUpdateUser(adminActor, rogueSeller.id, { action: 'unban' });
+  assert.equal(unbanned.isBanned, false);
+  assert.equal(unbanned.banReason, '');
+
+  // 4. Clear warnings
+  const cleared = await market.adminUpdateUser(adminActor, rogueSeller.id, { action: 'clear_warnings' });
+  assert.equal(cleared.warningCount, 0);
+  assert.equal(cleared.lastWarning, '');
 });

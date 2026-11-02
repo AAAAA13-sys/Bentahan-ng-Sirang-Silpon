@@ -10,8 +10,8 @@ import { getDb } from './db';
 import * as schema from '../db/schema';
 import { MarketError, parse, sameOrigin } from './validation';
 import { localUsernameEmail } from './local-accounts';
-export type MarketUser={id:string;name:string;email:string;role:string;location:string;sellerVerified:boolean;tier:string;phone:string};
-export function publicUser(u:typeof schema.user.$inferSelect):MarketUser { return {id:u.id,name:u.name,email:u.email,role:u.role,location:u.location,sellerVerified:u.sellerVerified,tier:(u as any).tier||'starter',phone:(u as any).phone||''}; }
+export type MarketUser={id:string;name:string;email:string;role:string;location:string;sellerVerified:boolean;tier:string;phone:string;isBanned?:boolean;banReason?:string;warningCount?:number;lastWarning?:string};
+export function publicUser(u:typeof schema.user.$inferSelect):MarketUser { return {id:u.id,name:u.name,email:u.email,role:u.role,location:u.location,sellerVerified:u.sellerVerified,tier:(u as any).tier||'starter',phone:(u as any).phone||'',isBanned:Boolean((u as any).isBanned),banReason:(u as any).banReason||'',warningCount:(u as any).warningCount||0,lastWarning:(u as any).lastWarning||''}; }
 function secret(){
  if(process.env.BETTER_AUTH_SECRET) return process.env.BETTER_AUTH_SECRET;
  if(process.env.SILICON_DATA_DIR===':memory:') return randomBytes(32).toString('hex');
@@ -62,6 +62,7 @@ export async function handleAccount(request:Request,action:string):Promise<Respo
  const db=await getDb();
  if(roleData)await db.update(schema.user).set({role:roleData.role,location:roleData.location,updatedAt:new Date()}).where(eq(schema.user.id,result.user.id));
  const [u]=await db.select().from(schema.user).where(eq(schema.user.id,result.user.id));
+ if(u && (u as any).isBanned) throw new MarketError(403, `This account is suspended: ${(u as any).banReason || 'Contact platform administration.'}`);
  return Response.json({user:publicUser(u)},{headers:response.headers});
  }catch(e){if(e instanceof MarketError)return Response.json({error:e.message,fields:e.fields},{status:e.status});if(e instanceof SyntaxError)return Response.json({error:'Send valid JSON.'},{status:400});console.error('Account operation failed',e instanceof Error?e.message:'unknown error');return Response.json({error:'Unable to complete this account request.'},{status:500});}
 }

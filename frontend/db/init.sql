@@ -24,4 +24,10 @@ ALTER TABLE listing ADD COLUMN IF NOT EXISTS ic_status text NOT NULL DEFAULT '';
 ALTER TABLE listing ADD COLUMN IF NOT EXISTS chassis_model text NOT NULL DEFAULT '';
 ALTER TABLE "order" ADD COLUMN IF NOT EXISTS voucher_code text;
 ALTER TABLE "order" ADD COLUMN IF NOT EXISTS discount_centavos bigint NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS platform_setting (key text PRIMARY KEY, value text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+INSERT INTO platform_setting (key, value) VALUES ('escrow_fee_bps', '800') ON CONFLICT (key) DO NOTHING;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_banned boolean NOT NULL DEFAULT false;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS ban_reason text NOT NULL DEFAULT '';
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS warning_count integer NOT NULL DEFAULT 0;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS last_warning text NOT NULL DEFAULT '';
 

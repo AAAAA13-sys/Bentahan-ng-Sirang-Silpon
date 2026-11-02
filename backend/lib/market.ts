@@ -1,13 +1,14 @@
 import { and, asc, desc, eq, gte, ilike, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from './db';
-import { user, listing, order } from '../db/schema';
+import { user, listing, order, platformSetting } from '../db/schema';
 import { brands, categories, conditions, listingInput, MarketError, parse, priceCentavos, reservationInput, cartCheckoutInput, partnerVouchers } from './validation';
 export { MarketError } from './validation';
 export type Actor = { id: string; role: string };
 function allowed(condition: unknown, message = 'This action is forbidden.'): asserts condition { if (!condition) throw new MarketError(403, message); }
 function found<T>(value: T | undefined): T { if (!value) throw new MarketError(404, 'Record not found.'); return value; }
-const publicSeller = { id: user.id, name: user.name, location: user.location, sellerVerified: user.sellerVerified, tier: user.tier, phone: user.phone };
+const publicSeller = { id: user.id, name: user.name, location: user.location, sellerVerified: user.sellerVerified, tier: user.tier, phone: user.phone, isBanned: user.isBanned, banReason: user.banReason, warningCount: user.warningCount, lastWarning: user.lastWarning };
+export type PublicSeller = { id: string; name: string; location: string; sellerVerified: boolean; tier: string; phone: string; isBanned?: boolean; banReason?: string; warningCount?: number; lastWarning?: string };
 function listingData(input: unknown, editing = false) {
   const data = parse(listingInput, input);
   if ((!editing && data.quantity === 0) || (data.quantity > 0 && data.minimumQuantity > data.quantity)) throw new MarketError(422, 'Check available stock and minimum quantity.', { quantity: 'Minimum order cannot exceed available stock.' });
@@ -96,7 +97,33 @@ export async function adjustStock(actor: Actor, id: number, input: unknown) {
     return (await tx.update(listing).set({ quantity: data.quantity, stockVersion: current.stockVersion + 1, updatedAt: new Date() }).where(eq(listing.id, id)).returning())[0];
   });
 }
-export const PLATFORM_FEE_RATE_BPS = 800; // 8% Marketplace Escrow Take-Rate from Business Proposal
+export const PLATFORM_FEE_RATE_BPS = 800; // 8% Marketplace Escrow Take-Rate fallback
+
+export async function getPlatformFeeRate(database?: any): Promise<number> {
+  try {
+    const db = database || (await getDb());
+    const rows = await db.select().from(platformSetting).where(eq(platformSetting.key, 'escrow_fee_bps'));
+    if (rows[0]?.value) {
+      const val = parseInt(rows[0].value, 10);
+      if (Number.isFinite(val) && val >= 0 && val <= 10000) return val;
+    }
+  } catch {}
+  return PLATFORM_FEE_RATE_BPS;
+}
+
+export async function setPlatformFeeRate(actor: Actor, bps: number): Promise<number> {
+  allowed(actor.role === 'admin', 'Admin privileges required.');
+  if (!Number.isFinite(bps) || bps < 0 || bps > 10000) {
+    throw new MarketError(422, 'Escrow fee rate must be between 0% and 100%.');
+  }
+  const db = await getDb();
+  await db.insert(platformSetting).values({ key: 'escrow_fee_bps', value: String(bps) }).onConflictDoUpdate({
+    target: platformSetting.key,
+    set: { value: String(bps), updatedAt: new Date() }
+  });
+  return bps;
+}
+
 export async function reserve(actor: Actor, id: number, input: unknown) {
   allowed(actor.role === 'buyer', 'A buyer account is required.'); const data = parse(reservationInput, input); const db = await getDb();
   return db.transaction(async tx => {
@@ -112,10 +139,11 @@ export async function reserve(actor: Actor, id: number, input: unknown) {
     if (data.quantity < stock.minimumQuantity || data.quantity > stock.quantity) throw new MarketError(422, 'Choose a quantity within the minimum order and available stock.', { quantity: 'Quantity is outside available stock or minimum order.' });
     const totalCentavos = stock.priceCentavos * data.quantity;
 
-    // Fee rate determination based on buyer's subscription tier (Package 3)
-    let platformFeeRate = PLATFORM_FEE_RATE_BPS;
+    // Fee rate determination based on dynamic platform setting and buyer's subscription tier (Package 3)
+    const baseFeeBps = await getPlatformFeeRate(tx);
+    let platformFeeRate = baseFeeBps;
     if (buyerUser.tier === 'enterprise') platformFeeRate = 0;
-    else if (buyerUser.tier === 'pro') platformFeeRate = 500;
+    else if (buyerUser.tier === 'pro') platformFeeRate = Math.min(500, baseFeeBps);
 
     // Partner Merchant Voucher Discount (Package 1)
     let discountCentavos = 0;
@@ -169,9 +197,10 @@ export async function checkoutCart(actor: Actor, input: unknown) {
   const db = await getDb();
   return db.transaction(async tx => {
     const buyerUser = found((await tx.select().from(user).where(eq(user.id, actor.id)).for('update'))[0]);
-    let platformFeeRate = PLATFORM_FEE_RATE_BPS;
+    const baseFeeBps = await getPlatformFeeRate(tx);
+    let platformFeeRate = baseFeeBps;
     if (buyerUser.tier === 'enterprise') platformFeeRate = 0;
-    else if (buyerUser.tier === 'pro') platformFeeRate = 500;
+    else if (buyerUser.tier === 'pro') platformFeeRate = Math.min(500, baseFeeBps);
 
     const createdOrders = [];
     for (const item of data.items) {
@@ -255,15 +284,73 @@ export async function workspace(actor: Actor) {
   const orders = await Promise.all(related.map(r => getOrder(actor, r.id)));
   let allOrders: Awaited<ReturnType<typeof getOrder>>[] = [];
   let platformStats = { totalGmv: 0, totalPlatformRevenue: 0, completedRevenue: 0, pendingRevenue: 0, commissionRate: 8, orderCount: 0 };
+  let allListings: (typeof listing.$inferSelect & { seller: PublicSeller })[] = [];
+  let allUsers: any[] = [];
+  let platformSettings = { escrowFeeBps: 800, escrowFeeRate: 8, proFeeRate: 5, enterpriseFeeRate: 0, inspectionWindowHours: 72 };
+
   if (actor.role === 'admin') {
+    const currentBaseBps = await getPlatformFeeRate(db);
+    platformSettings = {
+      escrowFeeBps: currentBaseBps,
+      escrowFeeRate: currentBaseBps / 100,
+      proFeeRate: Math.min(5, currentBaseBps / 100),
+      enterpriseFeeRate: 0,
+      inspectionWindowHours: 72
+    };
+
     const allOrderIds = await db.select({ id: order.id }).from(order).orderBy(desc(order.createdAt));
     allOrders = await Promise.all(allOrderIds.map(r => getOrder(actor, r.id)));
     const gmv = allOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.totalCentavos : 0), 0);
     const platformRev = allOrders.reduce((sum, o) => sum + (o.status !== 'cancelled' ? o.platformFeeCentavos : 0), 0);
     const completedRev = allOrders.reduce((sum, o) => sum + (o.status === 'completed' ? o.platformFeeCentavos : 0), 0);
     const pendingRev = allOrders.reduce((sum, o) => sum + (!['completed', 'cancelled'].includes(o.status) ? o.platformFeeCentavos : 0), 0);
-    platformStats = { totalGmv: gmv, totalPlatformRevenue: platformRev, completedRevenue: completedRev, pendingRevenue: pendingRev, commissionRate: 8, orderCount: allOrders.length };
+    platformStats = {
+      totalGmv: gmv,
+      totalPlatformRevenue: platformRev,
+      completedRevenue: completedRev,
+      pendingRevenue: pendingRev,
+      commissionRate: currentBaseBps / 100,
+      orderCount: allOrders.length
+    };
+
+    const allListingsRows = await db
+      .select({ listing, seller: publicSeller })
+      .from(listing)
+      .innerJoin(user, eq(listing.sellerId, user.id))
+      .orderBy(desc(listing.createdAt));
+    allListings = allListingsRows.map(r => ({ ...r.listing, seller: r.seller }));
+
+    const usersRows = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tier: user.tier,
+        location: user.location,
+        phone: user.phone,
+        sellerVerified: user.sellerVerified,
+        isBanned: user.isBanned,
+        banReason: user.banReason,
+        warningCount: user.warningCount,
+        lastWarning: user.lastWarning,
+        createdAt: user.createdAt
+      })
+      .from(user)
+      .orderBy(desc(user.createdAt));
+
+    const listingCounts = await db.select({ sellerId: listing.sellerId, count: sql<number>`count(*)::int` }).from(listing).groupBy(listing.sellerId);
+    const orderCounts = await db.select({ buyerId: order.buyerId, count: sql<number>`count(*)::int` }).from(order).where(eq(order.status, 'completed')).groupBy(order.buyerId);
+    const listingMap = new Map(listingCounts.map(c => [c.sellerId, c.count]));
+    const orderMap = new Map(orderCounts.map(c => [c.buyerId, c.count]));
+
+    allUsers = usersRows.map(u => ({
+      ...u,
+      activeListingsCount: listingMap.get(u.id) || 0,
+      completedOrdersCount: orderMap.get(u.id) || 0
+    }));
   }
+
   let sellerStats = { grossSales: 0, platformFees: 0, netPayout: 0 };
   if (actor.role === 'seller') {
     const sellerOrders = orders.filter(o => o.listing.sellerId === actor.id && o.status !== 'cancelled');
@@ -271,7 +358,19 @@ export async function workspace(actor: Actor) {
     const fees = sellerOrders.reduce((sum, o) => sum + o.platformFeeCentavos, 0);
     sellerStats = { grossSales: gross, platformFees: fees, netPayout: gross - fees };
   }
-  return { orders, allOrders, platformStats, sellerStats, listings: await db.select().from(listing).where(eq(listing.sellerId, actor.id)).orderBy(desc(listing.createdAt)), sellers: actor.role === 'admin' ? await db.select(publicSeller).from(user).where(eq(user.role, 'seller')) : [], openOrderCount: orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length };
+
+  return {
+    orders,
+    allOrders,
+    platformStats,
+    sellerStats,
+    listings: await db.select().from(listing).where(eq(listing.sellerId, actor.id)).orderBy(desc(listing.createdAt)),
+    sellers: actor.role === 'admin' ? allUsers.filter(u => u.role === 'seller') : [],
+    allListings: actor.role === 'admin' ? allListings : [],
+    allUsers: actor.role === 'admin' ? allUsers : [],
+    platformSettings: actor.role === 'admin' ? platformSettings : undefined,
+    openOrderCount: orders.filter(o => !['completed', 'cancelled'].includes(o.status)).length
+  };
 }
 export async function updateOrder(actor: Actor, id: number, input: unknown, now = new Date()) {
   const { action } = parse(z.object({ action: z.enum(['ship', 'receive', 'complete', 'dispute', 'cancel', 'resolve_dispute']) }), input); const db = await getDb();
@@ -298,4 +397,75 @@ export async function verifySeller(actor: Actor, id: string, input: unknown) {
   allowed(actor.role === 'admin'); const { verified } = parse(z.object({ verified: z.boolean() }), input); const db = await getDb();
   const seller = found((await db.select().from(user).where(eq(user.id, id)))[0]); allowed(seller.role === 'seller');
   return (await db.update(user).set({ sellerVerified: verified }).where(eq(user.id, id)).returning(publicSeller))[0];
+}
+
+export async function adminToggleVerifiedPass(actor: Actor, listingId: number, input: unknown) {
+  allowed(actor.role === 'admin');
+  const { verifiedPass } = parse(z.object({ verifiedPass: z.boolean() }), input);
+  const db = await getDb();
+  const current = found((await db.select().from(listing).where(eq(listing.id, listingId)))[0]);
+  return (await db.update(listing).set({
+    verifiedPass,
+    icStatus: verifiedPass ? (current.icStatus || 'PMIC, Audio IC & Baseband intact') : current.icStatus,
+    updatedAt: new Date()
+  }).where(eq(listing.id, listingId)).returning())[0];
+}
+
+export async function adminToggleListingVisibility(actor: Actor, listingId: number, input: unknown) {
+  allowed(actor.role === 'admin');
+  const { isActive } = parse(z.object({ isActive: z.boolean() }), input);
+  const db = await getDb();
+  return (await db.update(listing).set({ isActive, updatedAt: new Date() }).where(eq(listing.id, listingId)).returning())[0];
+}
+
+export async function adminDeleteListing(actor: Actor, listingId: number) {
+  allowed(actor.role === 'admin');
+  const db = await getDb();
+  return db.transaction(async tx => {
+    const pendingOrders = await tx.select().from(order).where(and(eq(order.listingId, listingId), or(eq(order.status, 'reserved'), eq(order.status, 'shipped'), eq(order.status, 'inspection'))));
+    if (pendingOrders.length > 0) {
+      return (await tx.update(listing).set({ isActive: false, updatedAt: new Date() }).where(eq(listing.id, listingId)).returning())[0];
+    }
+    const [deleted] = await tx.delete(listing).where(eq(listing.id, listingId)).returning();
+    return deleted || { id: listingId, deleted: true };
+  });
+}
+
+export async function adminUpdateUser(actor: Actor, userId: string, input: unknown) {
+  allowed(actor.role === 'admin');
+  const data = parse(z.object({
+    role: z.enum(['buyer', 'seller']).optional(),
+    tier: z.enum(['starter', 'pro', 'enterprise']).optional(),
+    sellerVerified: z.boolean().optional(),
+    action: z.enum(['warn', 'ban', 'unban', 'clear_warnings', 'update']).optional(),
+    warningReason: z.string().trim().max(500).optional(),
+    banReason: z.string().trim().max(500).optional()
+  }), input);
+  const db = await getDb();
+  return db.transaction(async tx => {
+    const target = found((await tx.select().from(user).where(eq(user.id, userId)).for('update'))[0]);
+    if (target.role === 'admin' && (data.role || data.action === 'ban' || data.action === 'warn')) {
+      throw new MarketError(422, 'Cannot demote, warn, or ban system administrator account.');
+    }
+    let updates: Partial<typeof user.$inferInsert> = { updatedAt: new Date() };
+    if (data.action === 'warn') {
+      const newCount = (target.warningCount || 0) + 1;
+      const reason = data.warningReason || 'Violation of marketplace transaction or diagnostic policies.';
+      updates = { ...updates, warningCount: newCount, lastWarning: reason };
+    } else if (data.action === 'ban') {
+      const reason = data.banReason || 'Account suspended by platform administration for policy violations.';
+      updates = { ...updates, isBanned: true, banReason: reason };
+      await tx.update(listing).set({ isActive: false, updatedAt: new Date() }).where(eq(listing.sellerId, userId));
+    } else if (data.action === 'unban') {
+      updates = { ...updates, isBanned: false, banReason: '' };
+    } else if (data.action === 'clear_warnings') {
+      updates = { ...updates, warningCount: 0, lastWarning: '' };
+    }
+    if (data.role) updates.role = data.role;
+    if (data.tier) updates.tier = data.tier;
+    if (data.sellerVerified !== undefined) updates.sellerVerified = data.sellerVerified;
+
+    const [updated] = await tx.update(user).set(updates).where(eq(user.id, userId)).returning(publicSeller);
+    return updated;
+  });
 }
