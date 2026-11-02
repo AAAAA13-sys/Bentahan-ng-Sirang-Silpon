@@ -16,7 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body style={{ backgroundColor: 'var(--paper)', color: 'var(--ink)' }}>{children}</body>
+      <body style={{ backgroundColor: 'var(--paper)', color: 'var(--ink)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>{children}</body>
     </html>
   );
 }

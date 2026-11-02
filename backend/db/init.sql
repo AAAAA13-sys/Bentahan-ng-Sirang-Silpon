@@ -17,4 +17,11 @@ ALTER TABLE "order" ADD COLUMN IF NOT EXISTS platform_fee_rate integer NOT NULL 
 ALTER TABLE "order" ADD COLUMN IF NOT EXISTS platform_fee_centavos bigint NOT NULL DEFAULT 0;
 ALTER TABLE "order" ADD COLUMN IF NOT EXISTS seller_payout_centavos bigint NOT NULL DEFAULT 0;
 UPDATE "order" SET platform_fee_rate = 800, platform_fee_centavos = ROUND((total_centavos * 8) / 100), seller_payout_centavos = total_centavos - ROUND((total_centavos * 8) / 100) WHERE platform_fee_centavos = 0 AND total_centavos > 0;
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS tier text NOT NULL DEFAULT 'starter';
+ALTER TABLE "user" ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
+ALTER TABLE listing ADD COLUMN IF NOT EXISTS verified_pass boolean NOT NULL DEFAULT false;
+ALTER TABLE listing ADD COLUMN IF NOT EXISTS ic_status text NOT NULL DEFAULT '';
+ALTER TABLE listing ADD COLUMN IF NOT EXISTS chassis_model text NOT NULL DEFAULT '';
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS voucher_code text;
+ALTER TABLE "order" ADD COLUMN IF NOT EXISTS discount_centavos bigint NOT NULL DEFAULT 0;
 

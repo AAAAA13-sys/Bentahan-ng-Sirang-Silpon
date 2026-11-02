@@ -92,3 +92,92 @@ test('same-origin guard uses browser Host when Next normalizes loopback URL', as
  assert.doesNotThrow(()=>sameOrigin(new Request('http://localhost:8090/api/account/login',{headers:{host:'127.0.0.1:8090',origin:'http://127.0.0.1:8090'}})));
  assert.throws(()=>sameOrigin(new Request('http://localhost:8090/api/account/login',{headers:{host:'127.0.0.1:8090',origin:'https://untrusted.invalid'}})));
 });
+
+test('cart checkout, verified pass listings, vouchers, and B2B buyer tier fee rates', async () => {
+  const { initializeDatabase, getDb } = await import('../lib/db');
+  const { user, listing, order } = await import('../db/schema');
+  const market = await import('../lib/market');
+  const { eq } = await import('drizzle-orm');
+  await initializeDatabase();
+  const db = await getDb();
+
+  const seller = { id: 'seller-vp', name: 'VP Seller', email: 'seller-vp@test.invalid', role: 'seller', location: 'Greenhills', sellerVerified: true, tier: 'starter', phone: '09171234567' };
+  const proBuyer = { id: 'buyer-pro', name: 'Pro Buyer', email: 'buyer-pro@test.invalid', role: 'buyer', location: 'Quiapo', sellerVerified: false, tier: 'pro', phone: '09181234567' };
+  const enterpriseBuyer = { id: 'buyer-ent', name: 'Enterprise Buyer', email: 'buyer-ent@test.invalid', role: 'buyer', location: 'Pasig', sellerVerified: false, tier: 'enterprise', phone: '09191234567' };
+  await db.insert(user).values([seller, proBuyer, enterpriseBuyer]);
+
+  // Create Verified Pass Listing
+  const vpListing = await market.createListing(seller, {
+    title: 'iPhone 12 Pro Logic Board Verified Pass',
+    brand: 'Apple',
+    model: 'iPhone 12 Pro',
+    category: 'Donor boards',
+    condition: 'Tested working',
+    boardClass: 'Grade A (Complete / All ICs)',
+    storageGb: '256GB',
+    ramGb: '6GB',
+    icCode: 'APL1099',
+    verifiedPass: true,
+    icStatus: 'PMIC, Audio IC & Baseband pads verified unheated / intact',
+    chassisModel: 'A2402, A2403',
+    description: 'Fully inspected donor board with Verified Pass diagnostic badge.',
+    diagnostics: 'Microscope impedance test passed on all key power rails.',
+    price: '2500.00',
+    quantity: 10,
+    minimumQuantity: 1
+  });
+
+  assert.equal(vpListing.verifiedPass, true);
+  assert.equal(vpListing.chassisModel, 'A2402, A2403');
+
+  // Verify catalog search by chassis model and verified pass filter
+  const vpCatalog = await market.catalog(new URLSearchParams({ verifiedPass: '1' }));
+  assert.ok(vpCatalog.listings.some(l => l.id === vpListing.id));
+  const chassisCatalog = await market.catalog(new URLSearchParams({ q: 'A2402' }));
+  assert.ok(chassisCatalog.listings.some(l => l.id === vpListing.id));
+
+  // Cart Checkout with Pro Buyer (5% fee rate) and 10% Partner Voucher
+  const cartResult = await market.checkoutCart(proBuyer, {
+    items: [
+      { listingId: vpListing.id, quantity: 2, reservationKey: 'e81a34bb-b5c6-433a-9e12-32b04f32c111' }
+    ],
+    address: '456 Repair Street, Greenhills Shopping Center, San Juan',
+    courier: 'Lalamove',
+    voucherCode: 'REPAIRPH10'
+  });
+
+  assert.equal(cartResult.orders.length, 1);
+  const cartOrder = cartResult.orders[0];
+  // 2 * 2500.00 = 5000.00 = 500000 centavos
+  // 10% voucher discount = 50000 centavos -> payable 450000 centavos
+  assert.equal(cartOrder.discountCentavos, 50000);
+  assert.equal(cartOrder.totalCentavos, 450000);
+  // Pro tier = 5% platform fee (500 bps)
+  assert.equal(cartOrder.platformFeeRate, 500);
+  assert.equal(cartOrder.platformFeeCentavos, Math.round((450000 * 500) / 10000)); // 22500 centavos
+  assert.equal(cartOrder.sellerPayoutCentavos, 450000 - 22500); // 427500 centavos
+  assert.equal(cartOrder.courier, 'Lalamove');
+  assert.equal(cartOrder.voucherCode, 'REPAIRPH10');
+
+  // Check remaining stock
+  const updatedListing = (await db.select().from(listing).where(eq(listing.id, vpListing.id)))[0];
+  assert.equal(updatedListing.quantity, 8);
+
+  // Cart Checkout with Enterprise Buyer (0% fee rate)
+  const entResult = await market.checkoutCart(enterpriseBuyer, {
+    items: [
+      { listingId: vpListing.id, quantity: 1, reservationKey: 'e81a34bb-b5c6-433a-9e12-32b04f32c222' }
+    ],
+    address: '789 Enterprise Blvd, Ortigas Center, Pasig City',
+    courier: 'J&T'
+  });
+  assert.equal(entResult.orders.length, 1);
+  const entOrder = entResult.orders[0];
+  assert.equal(entOrder.platformFeeRate, 0);
+  assert.equal(entOrder.platformFeeCentavos, 0);
+  assert.equal(entOrder.sellerPayoutCentavos, entOrder.totalCentavos);
+
+  // getUserOrders retrieves all user orders
+  const proOrders = await market.getUserOrders(proBuyer);
+  assert.ok(proOrders.some(o => o.id === cartOrder.id));
+});

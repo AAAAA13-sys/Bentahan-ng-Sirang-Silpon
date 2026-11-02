@@ -178,6 +178,19 @@ test('Silicon Trading Market Core Suite', async t => {
     assert.equal(settledOrder.status, 'completed');
   });
 
+  await t.test('6. Cart Checkout: multi-item batch order creation and voucher discount', async () => {
+    const buyerActor = { id: buyerId, role: 'buyer' };
+    const cartRes = await import('../lib/market').then(m => m.checkoutCart(buyerActor, {
+      items: [{ listingId: createdListing.id, quantity: 2, reservationKey: crypto.randomUUID() }],
+      address: 'Raon Electronic Center, Gonzalo Puyat St, Quiapo, Manila',
+      courier: 'Lalamove',
+      voucherCode: 'REPAIRPH10'
+    }));
+    assert.equal(cartRes.orders.length, 1);
+    assert.equal(cartRes.orders[0].voucherCode, 'REPAIRPH10');
+    assert.ok(cartRes.orders[0].discountCentavos > 0);
+  });
+
   t.after(async () => {
     // Cleanup test records
     await db.delete(order).where(eq(order.buyerId, buyerId));

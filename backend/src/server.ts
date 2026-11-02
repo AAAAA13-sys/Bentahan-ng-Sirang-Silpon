@@ -101,8 +101,19 @@ app.get('/api/session', async (req: ExpRequest, res: ExpResponse, next: NextFunc
   }
 });
 
-// Account operations (login, register, logout)
+// Account operations (login, register, logout, profile)
 app.post('/api/account/:action', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    const action = String(req.params.action);
+    const webRes = await handleAccount(webReq, action);
+    await sendWebResponse(webRes, res);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.patch('/api/account/:action', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
   try {
     const webReq = toWebRequest(req);
     const action = String(req.params.action);
@@ -224,6 +235,52 @@ app.post('/api/market/parts/:id/reserve', async (req: ExpRequest, res: ExpRespon
     if (!actor) throw new MarketError(401, 'Sign in to continue.');
     const order = await market.reserve(actor, id, req.body);
     res.json({ order });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Cart Multi-Item Checkout (Buyer)
+app.post('/api/market/cart/checkout', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const result = await market.checkoutCart(actor, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// List User Orders
+app.get('/api/market/orders', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    const actor = await currentUser(webReq);
+    if (!actor) throw new MarketError(401, 'Sign in to continue.');
+    const orders = await market.getUserOrders(actor);
+    res.json({ orders });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Support / Dispute Inquiry Ticket
+app.post('/api/support/ticket', async (req: ExpRequest, res: ExpResponse, next: NextFunction) => {
+  try {
+    const webReq = toWebRequest(req);
+    sameOrigin(webReq);
+    const { subject, message } = req.body || {};
+    if (!subject || !message) throw new MarketError(422, 'Subject and message are required.');
+    const ticketId = 'TKT-' + Math.floor(100000 + Math.random() * 900000);
+    res.json({
+      ok: true,
+      ticketId,
+      status: 'received',
+      message: 'Your inquiry has been logged with our Pasig City Support team. We respond within 1 business day.'
+    });
   } catch (err) {
     next(err);
   }

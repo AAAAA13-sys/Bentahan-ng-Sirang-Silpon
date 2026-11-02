@@ -2,23 +2,31 @@ import { and, asc, desc, eq, gte, ilike, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { getDb } from './db';
 import { user, listing, order } from '../db/schema';
-import { brands, categories, conditions, listingInput, MarketError, parse, priceCentavos, reservationInput } from './validation';
+import { brands, categories, conditions, listingInput, MarketError, parse, priceCentavos, reservationInput, cartCheckoutInput, partnerVouchers } from './validation';
 export { MarketError } from './validation';
 export type Actor = { id: string; role: string };
 function allowed(condition: unknown, message = 'This action is forbidden.'): asserts condition { if (!condition) throw new MarketError(403, message); }
 function found<T>(value: T | undefined): T { if (!value) throw new MarketError(404, 'Record not found.'); return value; }
-const publicSeller = { id: user.id, name: user.name, location: user.location, sellerVerified: user.sellerVerified };
+const publicSeller = { id: user.id, name: user.name, location: user.location, sellerVerified: user.sellerVerified, tier: user.tier, phone: user.phone };
 function listingData(input: unknown, editing = false) {
   const data = parse(listingInput, input);
   if ((!editing && data.quantity === 0) || (data.quantity > 0 && data.minimumQuantity > data.quantity)) throw new MarketError(422, 'Check available stock and minimum quantity.', { quantity: 'Minimum order cannot exceed available stock.' });
   const { price, ...rest } = data;
-  return { ...rest, priceCentavos: priceCentavos(price), art: data.category === 'Displays' ? 'display' : data.category === 'Cameras' ? 'camera' : data.category === 'ICs & chips' ? 'chip' : 'board' };
+  return {
+    ...rest,
+    priceCentavos: priceCentavos(price),
+    art: data.category === 'Displays' ? 'display' : data.category === 'Cameras' ? 'camera' : data.category === 'ICs & chips' ? 'chip' : 'board',
+    verifiedPass: Boolean(data.verifiedPass),
+    icStatus: data.icStatus || (data.verifiedPass ? 'PMIC, Audio IC & Baseband intact' : ''),
+    chassisModel: data.chassisModel || ''
+  };
 }
 export async function catalog(params: URLSearchParams) {
   const filters = parse(z.object({
     q: z.string().max(100).optional(), category: z.enum(categories).optional(), brand: z.enum(brands).optional(),
     condition: z.enum(conditions).optional(), boardClass: z.string().optional(), storageGb: z.string().optional(),
-    sort: z.enum(['newest', 'price-low', 'price-high']).optional(), verified: z.literal('1').optional(), page: z.coerce.number().int().min(1).optional()
+    sort: z.enum(['newest', 'price-low', 'price-high']).optional(), verified: z.literal('1').optional(),
+    verifiedPass: z.literal('1').optional(), page: z.coerce.number().int().min(1).optional()
   }), Object.fromEntries([...params].filter(([, v]) => v !== '')));
   const db = await getDb();
   const where = and(
@@ -30,18 +38,20 @@ export async function catalog(params: URLSearchParams) {
       ilike(listing.description, `%${filters.q}%`),
       ilike(listing.storageGb, `%${filters.q}%`),
       ilike(listing.boardClass, `%${filters.q}%`),
-      ilike(listing.icCode, `%${filters.q}%`)
+      ilike(listing.icCode, `%${filters.q}%`),
+      ilike(listing.chassisModel, `%${filters.q}%`)
     ) : undefined,
     filters.category ? eq(listing.category, filters.category) : undefined,
     filters.brand ? eq(listing.brand, filters.brand) : undefined,
     filters.condition ? eq(listing.condition, filters.condition) : undefined,
     filters.boardClass ? ilike(listing.boardClass, `%${filters.boardClass}%`) : undefined,
     filters.storageGb ? ilike(listing.storageGb, `%${filters.storageGb}%`) : undefined,
-    filters.verified ? eq(user.sellerVerified, true) : undefined
+    filters.verified ? eq(user.sellerVerified, true) : undefined,
+    filters.verifiedPass ? eq(listing.verifiedPass, true) : undefined
   );
   const page = filters.page ?? 1;
   const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(listing).innerJoin(user, eq(listing.sellerId, user.id)).where(where);
-  const rows = await db.select({ listing, seller: publicSeller }).from(listing).innerJoin(user, eq(listing.sellerId, user.id)).where(where).orderBy(filters.sort === 'price-low' ? asc(listing.priceCentavos) : filters.sort === 'price-high' ? desc(listing.priceCentavos) : desc(listing.createdAt), desc(listing.id)).limit(12).offset((page - 1) * 12);
+  const rows = await db.select({ listing, seller: publicSeller }).from(listing).innerJoin(user, eq(listing.sellerId, user.id)).where(where).orderBy(filters.sort === 'price-low' ? asc(listing.priceCentavos) : filters.sort === 'price-high' ? desc(listing.priceCentavos) : desc(listing.verifiedPass), desc(listing.createdAt), desc(listing.id)).limit(12).offset((page - 1) * 12);
   return { listings: rows.map(r => ({ ...r.listing, seller: r.seller })), total, page, pages: Math.max(1, Math.ceil(total / 12)) };
 }
 export async function getListing(id: number, actor?: Actor | null) {
@@ -90,7 +100,7 @@ export const PLATFORM_FEE_RATE_BPS = 800; // 8% Marketplace Escrow Take-Rate fro
 export async function reserve(actor: Actor, id: number, input: unknown) {
   allowed(actor.role === 'buyer', 'A buyer account is required.'); const data = parse(reservationInput, input); const db = await getDb();
   return db.transaction(async tx => {
-    found((await tx.select({ id: user.id }).from(user).where(eq(user.id, actor.id)).for('update'))[0]);
+    const buyerUser = found((await tx.select().from(user).where(eq(user.id, actor.id)).for('update'))[0]);
     const existing = (await tx.select().from(order).where(and(eq(order.buyerId, actor.id), eq(order.reservationKey, data.reservationKey))))[0];
     if (existing) {
       if (existing.listingId !== id || existing.quantity !== data.quantity || existing.address !== data.address) throw new MarketError(409, 'This submission key was already used for a different reservation.');
@@ -101,13 +111,133 @@ export async function reserve(actor: Actor, id: number, input: unknown) {
     if (!stock.isActive) throw new MarketError(409, 'This listing has been paused.');
     if (data.quantity < stock.minimumQuantity || data.quantity > stock.quantity) throw new MarketError(422, 'Choose a quantity within the minimum order and available stock.', { quantity: 'Quantity is outside available stock or minimum order.' });
     const totalCentavos = stock.priceCentavos * data.quantity;
-    const platformFeeRate = PLATFORM_FEE_RATE_BPS;
-    const platformFeeCentavos = Math.round((totalCentavos * platformFeeRate) / 10000);
-    const sellerPayoutCentavos = totalCentavos - platformFeeCentavos;
-    const created = (await tx.insert(order).values({ ...data, buyerId: actor.id, listingId: id, totalCentavos, platformFeeRate, platformFeeCentavos, sellerPayoutCentavos, listingSnapshot: { title: stock.title, model: stock.model, condition: stock.condition, boardClass: stock.boardClass, storageGb: stock.storageGb, ramGb: stock.ramGb, icCode: stock.icCode, description: stock.description, diagnostics: stock.diagnostics } }).returning())[0];
+
+    // Fee rate determination based on buyer's subscription tier (Package 3)
+    let platformFeeRate = PLATFORM_FEE_RATE_BPS;
+    if (buyerUser.tier === 'enterprise') platformFeeRate = 0;
+    else if (buyerUser.tier === 'pro') platformFeeRate = 500;
+
+    // Partner Merchant Voucher Discount (Package 1)
+    let discountCentavos = 0;
+    if (data.voucherCode) {
+      const code = data.voucherCode.trim().toUpperCase();
+      const voucher = partnerVouchers[code];
+      if (voucher) {
+        if (voucher.discountPercent) {
+          discountCentavos = Math.round((totalCentavos * voucher.discountPercent) / 100);
+        } else if (voucher.discountCentavos) {
+          discountCentavos = Math.min(totalCentavos, voucher.discountCentavos);
+        }
+      }
+    }
+    const payableCentavos = Math.max(100, totalCentavos - discountCentavos);
+    const platformFeeCentavos = Math.round((payableCentavos * platformFeeRate) / 10000);
+    const sellerPayoutCentavos = payableCentavos - platformFeeCentavos;
+
+    const created = (await tx.insert(order).values({
+      ...data,
+      buyerId: actor.id,
+      listingId: id,
+      totalCentavos: payableCentavos,
+      platformFeeRate,
+      platformFeeCentavos,
+      sellerPayoutCentavos,
+      voucherCode: data.voucherCode ? data.voucherCode.trim().toUpperCase() : null,
+      discountCentavos,
+      courier: data.courier || null,
+      listingSnapshot: {
+        title: stock.title,
+        model: stock.model,
+        condition: stock.condition,
+        boardClass: stock.boardClass,
+        storageGb: stock.storageGb,
+        ramGb: stock.ramGb,
+        icCode: stock.icCode,
+        verifiedPass: stock.verifiedPass,
+        chassisModel: stock.chassisModel,
+        description: stock.description,
+        diagnostics: stock.diagnostics
+      }
+    }).returning())[0];
     await tx.update(listing).set({ quantity: stock.quantity - data.quantity, stockVersion: stock.stockVersion + 1, updatedAt: new Date() }).where(eq(listing.id, id));
     return created;
   });
+}
+export async function checkoutCart(actor: Actor, input: unknown) {
+  allowed(actor.role === 'buyer', 'A buyer account is required.');
+  const data = parse(cartCheckoutInput, input);
+  const db = await getDb();
+  return db.transaction(async tx => {
+    const buyerUser = found((await tx.select().from(user).where(eq(user.id, actor.id)).for('update'))[0]);
+    let platformFeeRate = PLATFORM_FEE_RATE_BPS;
+    if (buyerUser.tier === 'enterprise') platformFeeRate = 0;
+    else if (buyerUser.tier === 'pro') platformFeeRate = 500;
+
+    const createdOrders = [];
+    for (const item of data.items) {
+      const stock = found((await tx.select().from(listing).where(eq(listing.id, item.listingId)).for('update'))[0]);
+      allowed(stock.sellerId !== actor.id, `You cannot buy your own listing: "${stock.title}".`);
+      if (!stock.isActive) throw new MarketError(409, `"${stock.title}" has been paused.`);
+      if (item.quantity < stock.minimumQuantity || item.quantity > stock.quantity) {
+        throw new MarketError(422, `"${stock.title}" quantity is outside available stock or minimum order.`, { quantity: `Available: ${stock.quantity}, Minimum: ${stock.minimumQuantity}` });
+      }
+      const totalCentavos = stock.priceCentavos * item.quantity;
+      let discountCentavos = 0;
+      if (data.voucherCode) {
+        const code = data.voucherCode.trim().toUpperCase();
+        const voucher = partnerVouchers[code];
+        if (voucher) {
+          if (voucher.discountPercent) {
+            discountCentavos = Math.round((totalCentavos * voucher.discountPercent) / 100);
+          } else if (voucher.discountCentavos) {
+            discountCentavos = Math.min(totalCentavos, Math.round(voucher.discountCentavos / data.items.length));
+          }
+        }
+      }
+      const payableCentavos = Math.max(100, totalCentavos - discountCentavos);
+      const platformFeeCentavos = Math.round((payableCentavos * platformFeeRate) / 10000);
+      const sellerPayoutCentavos = payableCentavos - platformFeeCentavos;
+
+      const created = (await tx.insert(order).values({
+        buyerId: actor.id,
+        listingId: stock.id,
+        quantity: item.quantity,
+        totalCentavos: payableCentavos,
+        platformFeeRate,
+        platformFeeCentavos,
+        sellerPayoutCentavos,
+        voucherCode: data.voucherCode ? data.voucherCode.trim().toUpperCase() : null,
+        discountCentavos,
+        address: data.address,
+        courier: data.courier,
+        reservationKey: item.reservationKey,
+        listingSnapshot: {
+          title: stock.title,
+          model: stock.model,
+          condition: stock.condition,
+          boardClass: stock.boardClass,
+          storageGb: stock.storageGb,
+          ramGb: stock.ramGb,
+          icCode: stock.icCode,
+          verifiedPass: stock.verifiedPass,
+          chassisModel: stock.chassisModel,
+          description: stock.description,
+          diagnostics: stock.diagnostics
+        }
+      }).returning())[0];
+      await tx.update(listing).set({ quantity: stock.quantity - item.quantity, stockVersion: stock.stockVersion + 1, updatedAt: new Date() }).where(eq(listing.id, stock.id));
+      createdOrders.push(created);
+    }
+    return { orders: createdOrders };
+  });
+}
+export async function getUserOrders(actor: Actor) {
+  const db = await getDb();
+  const where = actor.role === 'admin'
+    ? undefined
+    : or(eq(order.buyerId, actor.id), eq(listing.sellerId, actor.id));
+  const orderRows = await db.select({ id: order.id }).from(order).innerJoin(listing, eq(order.listingId, listing.id)).where(where).orderBy(desc(order.createdAt));
+  return Promise.all(orderRows.map(r => getOrder(actor, r.id)));
 }
 export async function getOrder(actor: Actor, id: number) {
   const db = await getDb(); const result = found((await db.select().from(order).where(eq(order.id, id)))[0]);

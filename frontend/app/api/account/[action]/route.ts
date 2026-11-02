@@ -7,6 +7,10 @@ export async function POST(request: Request, context: { params: Promise<{ action
   return handleAccount(request, (await context.params).action);
 }
 
+export async function PATCH(request: Request, context: { params: Promise<{ action: string }> }) {
+  return handleAccount(request, (await context.params).action);
+}
+
 export async function GET(_request: Request, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
   if (action === 'existing') {

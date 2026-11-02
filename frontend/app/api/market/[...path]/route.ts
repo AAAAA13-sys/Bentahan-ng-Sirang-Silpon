@@ -13,9 +13,11 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     if (method === 'GET' && resource === 'parts' && path.length === 2 && Number.isSafeInteger(id) && id > 0) return Response.json({ listing: await market.getListing(id, actor) });
     if (!actor) throw new MarketError(401, 'Sign in to continue.');
     if (method === 'GET' && resource === 'workspace' && path.length === 1) return Response.json(await market.workspace(actor));
+    if (method === 'GET' && resource === 'orders' && path.length === 1) return Response.json({ orders: await market.getUserOrders(actor) });
     if (method === 'GET' && resource === 'orders' && path.length === 2 && Number.isSafeInteger(id) && id > 0) return Response.json({ order: await market.getOrder(actor, id) });
     let input: unknown;
     if (method !== 'GET') { try { input = await request.json(); } catch { throw new MarketError(422, 'A valid JSON body is required.'); } }
+    if (method === 'POST' && resource === 'cart' && rawId === 'checkout' && path.length === 2) return Response.json(await market.checkoutCart(actor, input));
     if (method === 'POST' && resource === 'listings' && path.length === 1) return Response.json({ listing: await market.createListing(actor, input) }, { status: 201 });
     if (method === 'POST' && resource === 'sellers' && operation === 'verify' && path.length === 3) return Response.json({ user: await market.verifySeller(actor, rawId, input) });
     if (!Number.isSafeInteger(id) || id < 1) throw new MarketError(404, 'Record not found.');

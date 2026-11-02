@@ -20,11 +20,36 @@ export const listingInput = z.object({
   storageGb: z.string().trim().max(30).optional().default('128GB'),
   ramGb: z.string().trim().max(30).optional().default('6GB'),
   icCode: z.string().trim().max(80).optional().default(''),
+  verifiedPass: z.boolean().optional().default(false),
+  icStatus: z.string().trim().max(200).optional().default(''),
+  chassisModel: z.string().trim().max(100).optional().default(''),
   description: z.string().trim().min(30).max(4000),
   diagnostics: z.string().trim().min(10).max(2000), price: z.string().regex(/^\d{1,6}(\.\d{1,2})?$/).refine(p => Number(p) >= 1 && Number(p) <= 999999.99),
   quantity: z.number().int().min(0).max(10000), minimumQuantity: z.number().int().min(1).max(10000),
 });
-export const reservationInput = z.object({ reservationKey: z.string().uuid(), quantity: z.number().int().min(1).max(10000), address: z.string().trim().min(15).max(1000) });
+export const reservationInput = z.object({
+  reservationKey: z.string().uuid(),
+  quantity: z.number().int().min(1).max(10000),
+  address: z.string().trim().min(15).max(1000),
+  courier: z.enum(['LBC', 'J&T', 'Lalamove']).optional(),
+  voucherCode: z.string().trim().max(50).optional()
+});
+export const cartCheckoutInput = z.object({
+  items: z.array(z.object({
+    listingId: z.number().int().min(1),
+    quantity: z.number().int().min(1).max(10000),
+    reservationKey: z.string().uuid()
+  })).min(1).max(50),
+  address: z.string().trim().min(15).max(1000),
+  courier: z.enum(['LBC', 'J&T', 'Lalamove']).optional().default('Lalamove'),
+  voucherCode: z.string().trim().max(50).optional()
+});
+export const partnerVouchers: Record<string, { discountPercent?: number; discountCentavos?: number; name: string }> = {
+  'REPAIRPH10': { discountPercent: 10, name: '10% Repair Community Affiliate Partner Discount' },
+  'GREENHILLS50': { discountCentavos: 5000, name: '₱50 Greenhills Hub Tech Voucher' },
+  'PASIGECO': { discountCentavos: 10000, name: '₱100 Pasig Circular E-Waste Voucher' },
+  'CIRCULAR2026': { discountPercent: 5, name: '5% Sustainable Circular Tech Voucher' }
+};
 export function priceCentavos(price: string) { const [whole, cents = ''] = price.split('.'); return Number(whole) * 100 + Number(cents.padEnd(2, '0')); }
 const trustedOrigins = [
   'http://127.0.0.1:8090', 'http://localhost:8090',

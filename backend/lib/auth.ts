@@ -10,8 +10,8 @@ import { getDb } from './db';
 import * as schema from '../db/schema';
 import { MarketError, parse, sameOrigin } from './validation';
 import { localUsernameEmail } from './local-accounts';
-export type MarketUser={id:string;name:string;email:string;role:string;location:string;sellerVerified:boolean};
-export function publicUser(u:typeof schema.user.$inferSelect):MarketUser { return {id:u.id,name:u.name,email:u.email,role:u.role,location:u.location,sellerVerified:u.sellerVerified}; }
+export type MarketUser={id:string;name:string;email:string;role:string;location:string;sellerVerified:boolean;tier:string;phone:string};
+export function publicUser(u:typeof schema.user.$inferSelect):MarketUser { return {id:u.id,name:u.name,email:u.email,role:u.role,location:u.location,sellerVerified:u.sellerVerified,tier:(u as any).tier||'starter',phone:(u as any).phone||''}; }
 function secret(){
  if(process.env.BETTER_AUTH_SECRET) return process.env.BETTER_AUTH_SECRET;
  if(process.env.SILICON_DATA_DIR===':memory:') return randomBytes(32).toString('hex');
@@ -40,6 +40,20 @@ export async function handleAccount(request:Request,action:string):Promise<Respo
  const body=await request.json(); let response:Response; let roleData:z.infer<typeof registration>|undefined;
  if(action==='register'){roleData=parse(registration,body);response=await auth.api.signUpEmail({body:{name:roleData.name,email:roleData.email,password:roleData.password},headers:request.headers,asResponse:true});}
  else if(action==='login'){const data=parse(z.object({email:z.string().trim().toLowerCase().min(1).max(255),password:z.string().min(1).max(72)}),body); const email=localUsernameEmail(data.email,request); if(!z.string().email().safeParse(email).success)throw new MarketError(422,'Enter your email or local test username.'); response=await auth.api.signInEmail({body:{email,password:data.password},headers:request.headers,asResponse:true});}
+ else if(action==='profile'){
+   const actor=await currentUser(request); if(!actor) throw new MarketError(401, 'Sign in to continue.');
+   const profileSchema=z.object({
+     name:z.string().trim().min(2).max(100).optional(),
+     location:z.string().trim().max(120).optional(),
+     phone:z.string().trim().max(30).optional(),
+     tier:z.enum(['starter','pro','enterprise']).optional()
+   });
+   const updateData=parse(profileSchema, body);
+   const db=await getDb();
+   await db.update(schema.user).set({ ...updateData, updatedAt: new Date() }).where(eq(schema.user.id, actor.id));
+   const [u]=await db.select().from(schema.user).where(eq(schema.user.id, actor.id));
+   return Response.json({ user: publicUser(u) });
+ }
  else throw new MarketError(404,'Unknown account action.');
  const result=(await response.json()) as { message?: string; user: { id: string } };
  if(!response.ok)return Response.json({error:response.status===401?'Email or password is incorrect.':result.message||'Unable to complete sign-in.'},{status:response.status,headers:response.headers});

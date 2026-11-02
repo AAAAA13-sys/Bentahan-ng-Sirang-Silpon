@@ -7,7 +7,8 @@ import {
   Cpu, Search, ShieldCheck, ShieldAlert, Truck, Recycle, ArrowUpRight, Camera,
   Monitor, Package, Plus, CheckCircle2, AlertTriangle, Clock, RefreshCw, X, ZoomIn,
   Sun, Moon, ArrowRight, UserCheck, Shield, Layers, ArrowLeft, MapPin, Copy, Check, ExternalLink,
-  Database
+  Database, ShoppingCart, ShoppingBag, Trash2, Tag, HelpCircle, FileText, Sparkles, Percent, Award,
+  Ticket, MessageSquare, Settings, CheckCircle, Filter
 } from 'lucide-react';
 
 type User = {
@@ -16,7 +17,9 @@ type User = {
   email: string;
   role: 'buyer' | 'seller' | 'admin';
   location: string;
+  phone?: string;
   sellerVerified: boolean;
+  tier?: 'starter' | 'pro' | 'enterprise';
 };
 
 type Listing = {
@@ -31,6 +34,9 @@ type Listing = {
   storageGb?: string;
   ramGb?: string;
   icCode?: string;
+  verifiedPass?: boolean;
+  icStatus?: string;
+  chassisModel?: string;
   description: string;
   diagnostics: string;
   priceCentavos: number;
@@ -51,6 +57,8 @@ type Order = {
   platformFeeRate: number;
   platformFeeCentavos: number;
   sellerPayoutCentavos: number;
+  voucherCode?: string;
+  discountCentavos?: number;
   status: string;
   address: string;
   courier?: string;
@@ -66,11 +74,31 @@ type Order = {
     storageGb?: string;
     ramGb?: string;
     icCode?: string;
+    verifiedPass?: boolean;
+    chassisModel?: string;
     description: string;
     diagnostics: string;
   };
   listing: Listing;
   buyer: User;
+};
+
+type CartItem = {
+  listingId: number;
+  title: string;
+  priceCentavos: number;
+  quantity: number;
+  minimumQuantity: number;
+  maxQuantity: number;
+  art: string;
+  sellerName: string;
+  sellerId: string;
+  brand: string;
+  model: string;
+  boardClass?: string;
+  condition: string;
+  verifiedPass?: boolean;
+  chassisModel?: string;
 };
 
 const categories = ['Donor boards', 'ICs & chips', 'Displays', 'Cameras', 'Bulk lots'] as const;
@@ -245,6 +273,7 @@ function Field({
   minLength?: number;
   autoComplete?: string;
   placeholder?: string;
+  disabled?: boolean;
   onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
 }) {
   const inputProps = value !== undefined ? { value, onChange } : { defaultValue, onChange };
@@ -281,51 +310,100 @@ function Errors({ error, fields }: { error: string; fields?: Record<string, stri
   ) : null;
 }
 
-function Card({ listing: l }: { listing: Listing }) {
+function CircularTechStats() {
+  return (
+    <div className="circular-stats-banner">
+      <div className="stat-item">
+        <span className="stat-item-num">3,420+</span>
+        <span className="stat-item-label">Motherboards Diverted</span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-item-num">18,500+</span>
+        <span className="stat-item-label">Salvaged IC Chips</span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-item-num">513 kg</span>
+        <span className="stat-item-label">Toxic E-Waste Kept from Landfills</span>
+      </div>
+      <div className="stat-item">
+        <span className="stat-item-num">₱1.42M+</span>
+        <span className="stat-item-label">Tech Value Unlocked (RA 9003 / 6969)</span>
+      </div>
+    </div>
+  );
+}
+
+function Card({ listing: l, onAddToCart }: { listing: Listing; onAddToCart?: (l: Listing) => void }) {
   const isTested = l.condition === 'Tested working';
   const isHarvest = l.condition === 'For harvesting';
   const condBg = isTested ? 'rgba(5, 150, 105, 0.92)' : isHarvest ? 'rgba(217, 119, 6, 0.92)' : 'rgba(37, 99, 235, 0.92)';
   const cleanGrade = l.boardClass ? l.boardClass.replace(/ \([^)]*\)/g, '') : '';
 
   return (
-    <Link href={`/parts/${l.id}`} className="product-card">
-      <div className="product-art">
-        <span className="condition" style={{ background: condBg, color: '#ffffff', border: 'none' }}>
-          {l.condition}
-        </span>
-        {cleanGrade && <span className="board-class-tag">{cleanGrade}</span>}
-        {l.minimumQuantity > 1 && <span className="bulk-tag">MIN. {l.minimumQuantity} PCS</span>}
-        <Art art={l.art} alt={l.title} />
-      </div>
-      <div className="product-body">
-        <div className="product-meta">
-          <span>{l.brand} · {l.category}</span>
-          <span className="memory-spec">{l.storageGb || '128GB'} / {l.ramGb || '6GB'}</span>
-        </div>
-        <h3>{l.title}</h3>
-        <p className="model">{l.model}</p>
-        {l.icCode && (
-          <div className="ic-code-sub">
-            <span>IC:</span> <code>{l.icCode}</code>
-          </div>
-        )}
-        <div className="product-price">
-          <strong>{money(l.priceCentavos)}</strong>
-          <span>/ unit</span>
-          <span className="circle-link">↗</span>
-        </div>
-        <div className="seller-line">
-          <span>
-            {l.seller.name} {l.seller.sellerVerified && <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓</span>}
+    <div className="product-card" style={{ display: 'flex', flexDirection: 'column' }}>
+      <Link href={`/parts/${l.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+        <div className="product-art">
+          <span className="condition" style={{ background: condBg, color: '#ffffff', border: 'none' }}>
+            {l.condition}
           </span>
-          <span>{l.quantity} in stock</span>
+          {cleanGrade && <span className="board-class-tag">{cleanGrade}</span>}
+          {l.minimumQuantity > 1 && <span className="bulk-tag">MIN. {l.minimumQuantity} PCS</span>}
+          {l.verifiedPass && (
+            <span className="verified-pass-badge" style={{ position: 'absolute', bottom: '10px', left: '10px', zIndex: 2 }}>
+              <CheckCircle size={11} /> VERIFIED PASS
+            </span>
+          )}
+          <Art art={l.art} alt={l.title} />
         </div>
-      </div>
-    </Link>
+        <div className="product-body">
+          <div className="product-meta">
+            <span>{l.brand} · {l.category}</span>
+            <span className="memory-spec">{l.storageGb || '128GB'} / {l.ramGb || '6GB'}</span>
+          </div>
+          <h3>{l.title}</h3>
+          <p className="model">
+            {l.model}
+            {l.chassisModel && <span className="chassis-model-tag" style={{ marginLeft: '6px' }}>{l.chassisModel}</span>}
+          </p>
+          {l.icCode && (
+            <div className="ic-code-sub">
+              <span>IC:</span> <code>{l.icCode}</code>
+            </div>
+          )}
+          <div className="product-price">
+            <strong>{money(l.priceCentavos)}</strong>
+            <span>/ unit</span>
+            <span className="circle-link">↗</span>
+          </div>
+          <div className="seller-line">
+            <span>
+              {l.seller.name} {l.seller.sellerVerified && <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓</span>}
+            </span>
+            <span>{l.quantity} in stock</span>
+          </div>
+        </div>
+      </Link>
+      {onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
+        <div style={{ padding: '0 16px 14px', marginTop: 'auto' }}>
+          <button
+            type="button"
+            className="card-cart-btn"
+            style={{ width: '100%', justifyContent: 'center' }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddToCart(l);
+            }}
+          >
+            <ShoppingCart size={14} /> Add to Cart
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
-function Home({ user }: { user: User | null }) {
+function Home({ user, onAddToCart }: { user: User | null; onAddToCart?: (l: Listing) => void }) {
   const remote = useRemote<{ listings: Listing[]; total: number }>('/api/market/catalog');
   return (
     <>
@@ -441,7 +519,7 @@ function Home({ user }: { user: User | null }) {
         <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
           <div className="product-grid">
             {remote.data?.listings.slice(0, 8).map(l => (
-              <Card key={l.id} listing={l} />
+              <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
             ))}
           </div>
           {remote.data?.listings.length === 0 && (
@@ -472,7 +550,130 @@ function Home({ user }: { user: User | null }) {
   );
 }
 
-function Catalog() {
+const deviceCompatibilityDatabase: Record<string, {
+  models: {
+    name: string;
+    chassis: string;
+    boardRev: string;
+    pmic: string;
+    audio: string;
+    baseband: string;
+  }[];
+}> = {
+  Apple: {
+    models: [
+      { name: 'iPhone 13', chassis: 'A2633, A2482', boardRev: '820-02106', pmic: 'PM3003A', audio: '338S00617', baseband: 'Qualcomm SDX60M' },
+      { name: 'iPhone 12', chassis: 'A2403, A2172', boardRev: '820-01997', pmic: 'PM3002A', audio: '338S00537', baseband: 'Qualcomm SDX55M' },
+      { name: 'iPhone 11', chassis: 'A2221, A2111', boardRev: '820-01509', pmic: 'PM3001A', audio: '338S00509', baseband: 'Intel XMM7660' },
+      { name: 'iPhone XR', chassis: 'A2105, A1984', boardRev: '820-01004', pmic: 'PM3000A', audio: '338S00411', baseband: 'Intel XMM7560' },
+    ],
+  },
+  Samsung: {
+    models: [
+      { name: 'Galaxy S21 5G', chassis: 'SM-G991B, SM-G991U', boardRev: 'REV 0.8', pmic: 'S2MPS21 / MAX77705', audio: 'CS35L41', baseband: 'Exynos 2100 / Snapdragon 888' },
+      { name: 'Galaxy S20 FE', chassis: 'SM-G780F, SM-G781B', boardRev: 'REV 0.4', pmic: 'S2MPS19', audio: 'CS35L40', baseband: 'Exynos 990 / X55' },
+      { name: 'Galaxy A52', chassis: 'SM-A525F, SM-A526B', boardRev: 'REV 0.3', pmic: 'PM6150 / PM6150L', audio: 'WCD9370', baseband: 'Snapdragon 720G / 750G' },
+    ],
+  },
+  Xiaomi: {
+    models: [
+      { name: 'Redmi Note 11', chassis: '2201117TG', boardRev: 'V1.2', pmic: 'PM6125 / PMI632', audio: 'WCD9375', baseband: 'Snapdragon 680' },
+      { name: 'POCO X3 Pro', chassis: 'M2102J20SG', boardRev: 'V1.0', pmic: 'PM8150 / PM8150B', audio: 'WCD9340', baseband: 'Snapdragon 860' },
+      { name: 'Redmi Note 10 Pro', chassis: 'M2101K6G', boardRev: 'REV 0.7', pmic: 'PM7150 / PM7150L', audio: 'WCD9385', baseband: 'Snapdragon 732G' },
+    ],
+  },
+  OPPO: {
+    models: [
+      { name: 'Reno 6 5G', chassis: 'CPH2251', boardRev: 'VER 1.1', pmic: 'MT6359P', audio: 'AW88194', baseband: 'MediaTek Dimensity 900' },
+      { name: 'A54', chassis: 'CPH2239', boardRev: 'VER 1.0', pmic: 'MT6357CRV', audio: 'AW87339', baseband: 'MediaTek Helio P35' },
+    ],
+  },
+  Vivo: {
+    models: [
+      { name: 'Y20', chassis: 'V2029', boardRev: 'V01', pmic: 'PM439 / PMI632', audio: 'WCD9326', baseband: 'Snapdragon 460' },
+      { name: 'V21 5G', chassis: 'V2050', boardRev: 'V02', pmic: 'MT6359W', audio: 'AW88194', baseband: 'MediaTek Dimensity 800U' },
+    ],
+  },
+};
+
+function CompatibilityChecker() {
+  const [selectedBrand, setSelectedBrand] = useState('Apple');
+  const [selectedModel, setSelectedModel] = useState('iPhone 13');
+
+  const models = deviceCompatibilityDatabase[selectedBrand]?.models || [];
+  const currentMatch = models.find(m => m.name === selectedModel) || models[0];
+
+  return (
+    <div className="compatibility-widget">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+        <Cpu size={18} color="var(--green)" />
+        <h3 style={{ margin: 0, fontSize: '16px' }}>Interactive Device Compatibility Lookup</h3>
+      </div>
+      <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--muted)' }}>
+        Match chassis revision codes and IC chips before harvesting or soldering to ensure 100% pinout alignment.
+      </p>
+
+      <div className="compatibility-form">
+        <label>
+          Brand
+          <select
+            value={selectedBrand}
+            onChange={e => {
+              const b = e.target.value;
+              setSelectedBrand(b);
+              const firstM = deviceCompatibilityDatabase[b]?.models[0]?.name;
+              if (firstM) setSelectedModel(firstM);
+            }}
+          >
+            {Object.keys(deviceCompatibilityDatabase).map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Model
+          <select
+            value={selectedModel}
+            onChange={e => setSelectedModel(e.target.value)}
+          >
+            {models.map(m => (
+              <option key={m.name} value={m.name}>{m.name}</option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <Link
+            className="button dark small"
+            href={`/marketplace?q=${encodeURIComponent(selectedModel)}`}
+            style={{ height: '42px', display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap' }}
+          >
+            <Search size={14} /> Find in Marketplace ↗
+          </Link>
+        </div>
+      </div>
+
+      {currentMatch && (
+        <div className="compat-result-card">
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px' }}>
+              {selectedBrand} {currentMatch.name} · Board Rev: {currentMatch.boardRev}
+            </div>
+            <div className="compat-tags">
+              <span className="compat-pill">Chassis: {currentMatch.chassis}</span>
+              <span className="compat-pill">PMIC: {currentMatch.pmic}</span>
+              <span className="compat-pill">Audio: {currentMatch.audio}</span>
+              <span className="compat-pill">Baseband: {currentMatch.baseband}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Catalog({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
   const params = useSearchParams();
   const query = params.toString();
   const isBulkCategory = params.get('category') === 'Bulk lots';
@@ -574,6 +775,15 @@ function Catalog() {
               />
               Verified sellers only
             </label>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                name="verifiedPass"
+                value="1"
+                defaultChecked={params.get('verifiedPass') === '1'}
+              />
+              Verified Pass IC Certified
+            </label>
             <button className="button dark full">Apply filters</button>
           </form>
           <p className="filter-note">
@@ -589,7 +799,7 @@ function Catalog() {
             </div>
             <div className="product-grid catalog-products">
               {remote.data?.listings.map(l => (
-                <Card key={l.id} listing={l} />
+                <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
               ))}
             </div>
             {remote.data?.listings.length === 0 && (
@@ -739,7 +949,7 @@ function Gate({ user, role, children }: { user: User | null; role?: string; chil
   return <>{children}</>;
 }
 
-function Detail({ id, user }: { id: string; user: User | null }) {
+function Detail({ id, user, onAddToCart }: { id: string; user: User | null; onAddToCart?: (l: Listing) => void }) {
   const remote = useRemote<{ listing: Listing }>(`/api/market/parts/${id}`);
   return (
     <div className="container">
@@ -747,7 +957,14 @@ function Detail({ id, user }: { id: string; user: User | null }) {
         <Link href="/marketplace">Marketplace</Link> / Component details
       </div>
       <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
-        {remote.data && <DetailContent listing={remote.data.listing} user={user} onListingReload={remote.reload} />}
+        {remote.data && (
+          <DetailContent
+            listing={remote.data.listing}
+            user={user}
+            onListingReload={remote.reload}
+            onAddToCart={onAddToCart}
+          />
+        )}
       </Remote>
     </div>
   );
@@ -977,10 +1194,12 @@ function DetailContent({
   listing: l,
   user,
   onListingReload,
+  onAddToCart,
 }: {
   listing: Listing;
   user: User | null;
   onListingReload: () => void;
+  onAddToCart?: (l: Listing) => void;
 }) {
   const router = useRouter();
   const [macroOpen, setMacroOpen] = useState(false);
@@ -1100,6 +1319,27 @@ function DetailContent({
             </div>
           </section>
 
+          {l.verifiedPass && (
+            <div className="verified-pass-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--green)', fontWeight: 700, fontSize: '13.5px', marginBottom: '8px' }}>
+                <CheckCircle size={18} /> PACKAGE 2: VERIFIED PASS CERTIFIED
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--ink)', margin: '0 0 10px', lineHeight: '1.5' }}>
+                This logic board has undergone 45x stereo microscope pad inspection and DC power supply current draw testing.
+              </p>
+              {l.icStatus && (
+                <div style={{ fontSize: '12px', background: 'var(--surface-alt)', padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                  <strong>IC Diagnostics:</strong> <code>{l.icStatus}</code>
+                </div>
+              )}
+              {l.chassisModel && (
+                <div style={{ fontSize: '12px', marginTop: '6px', color: 'var(--muted)' }}>
+                  Compatible Chassis Model: <strong>{l.chassisModel}</strong>
+                </div>
+              )}
+            </div>
+          )}
+
           <section className="panel">
             <h3>Diagnostic notes</h3>
             <p className="preserve">{l.diagnostics}</p>
@@ -1127,8 +1367,19 @@ function DetailContent({
             </div>
           </div>
 
+          {onAddToCart && l.isActive && l.quantity >= l.minimumQuantity && (
+            <button
+              type="button"
+              className="button outline full"
+              style={{ marginTop: '16px' }}
+              onClick={() => onAddToCart(l)}
+            >
+              <ShoppingCart size={15} /> Add to Parts Cart
+            </button>
+          )}
+
           {!user ? (
-            <div className="panel" style={{ marginTop: '24px' }}>
+            <div className="panel" style={{ marginTop: '16px' }}>
               <Link className="button dark full" href={`/login?part=${l.id}`}>
                 Log in to reserve ↗
               </Link>
@@ -1137,10 +1388,10 @@ function DetailContent({
               </p>
             </div>
           ) : user.role === 'buyer' ? (
-            <div className="panel" style={{ marginTop: '24px' }}>
-              <h3>Reserve Reclaimed Component</h3>
+            <div className="panel" style={{ marginTop: '16px' }}>
+              <h3>Instant Reservation Escrow</h3>
               <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 16px' }}>
-                Secure this component directly from the technician seller with 8% platform escrow protection.
+                Lock this single component in escrow with direct courier shipment.
               </p>
               <button
                 type="button"
@@ -1203,8 +1454,10 @@ function EditorForm({ listing: l, reload }: { listing?: Listing; reload: () => v
     setFields(undefined);
     const data = Object.fromEntries(new FormData(e.currentTarget));
     try {
+      const verifiedPass = data.verifiedPass === '1';
       const body = {
         ...data,
+        verifiedPass,
         quantity: Number(data.quantity),
         minimumQuantity: Number(data.minimumQuantity),
         ...(l ? { stockVersion: l.stockVersion } : {}),
@@ -1296,6 +1549,37 @@ function EditorForm({ listing: l, reload }: { listing?: Listing; reload: () => v
         </div>
         <Field label="Description" name="description" type="textarea" value={l?.description} minLength={30} maxLength={4000} />
         <Field label="Diagnostic notes" name="diagnostics" type="textarea" value={l?.diagnostics} minLength={10} maxLength={2000} />
+
+        <div className="form-row">
+          <Field
+            label="Chassis Model Code"
+            name="chassisModel"
+            value={l?.chassisModel || ''}
+            placeholder="e.g. A2633, A2482, SM-G991B"
+            required={false}
+          />
+          <Field
+            label="IC Diagnostic Status (PMIC, Audio, Baseband)"
+            name="icStatus"
+            value={l?.icStatus || ''}
+            placeholder="e.g. PMIC tested good, Baseband intact, Audio codec functional"
+            required={false}
+          />
+        </div>
+        <label className="checkbox" style={{ margin: '14px 0' }}>
+          <input
+            type="checkbox"
+            name="verifiedPass"
+            value="1"
+            defaultChecked={Boolean(l?.verifiedPass)}
+          />
+          <span>
+            <strong>Package 2: Include Verified Pass Certification (+₱49)</strong>
+            <small style={{ display: 'block', color: 'var(--muted)', fontSize: '12px', marginTop: '2px' }}>
+              45x stereo microscope inspection, cold-joint diode testing, and priority placement in search index.
+            </small>
+          </span>
+        </label>
 
         <h3>Price & availability</h3>
         <div className="form-row three">
@@ -2422,6 +2706,1049 @@ function About({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function CartPage({
+  cart,
+  user,
+  onUpdateQuantity,
+  onRemove,
+  onClear,
+}: {
+  cart: CartItem[];
+  user: User | null;
+  onUpdateQuantity: (id: number, qty: number) => void;
+  onRemove: (id: number) => void;
+  onClear: () => void;
+}) {
+  const router = useRouter();
+  const [address, setAddress] = useState(user?.location || '');
+  const [courier, setCourier] = useState<'LBC' | 'J&T' | 'Lalamove'>('J&T');
+  const [voucherInput, setVoucherInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; discount: number; label: string } | null>(null);
+  const [voucherError, setVoucherError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+
+  const courierRates: Record<string, number> = {
+    'J&T': 12000,
+    'LBC': 18000,
+    'Lalamove': 25000,
+  };
+
+  const subtotalCentavos = cart.reduce((sum, item) => sum + item.priceCentavos * item.quantity, 0);
+  const deliveryFeeCentavos = cart.length > 0 ? (courierRates[courier] || 12000) : 0;
+
+  let discountCentavos = 0;
+  if (appliedVoucher) {
+    if (appliedVoucher.code === 'REPAIRPH10') {
+      discountCentavos = Math.round(subtotalCentavos * 0.10);
+    } else if (appliedVoucher.code === 'GREENHILLS50') {
+      discountCentavos = 5000;
+    } else if (appliedVoucher.code === 'PASIGECO') {
+      discountCentavos = 10000;
+    } else if (appliedVoucher.code === 'CIRCULAR2026') {
+      discountCentavos = Math.round(subtotalCentavos * 0.15);
+    }
+    discountCentavos = Math.min(discountCentavos, subtotalCentavos);
+  }
+
+  const tierFeeRates: Record<string, number> = {
+    starter: 8,
+    pro: 5,
+    enterprise: 0,
+  };
+  const effectiveTier = user?.tier || 'starter';
+  const feeRate = tierFeeRates[effectiveTier] ?? 8;
+  const platformFeeCentavos = Math.round(((subtotalCentavos - discountCentavos) * (feeRate * 100)) / 10000);
+  const totalGmvCentavos = subtotalCentavos - discountCentavos + deliveryFeeCentavos;
+
+  function applyVoucherCode() {
+    setVoucherError('');
+    const code = voucherInput.trim().toUpperCase();
+    if (!code) return;
+    const vouchers: Record<string, { discount: number; label: string }> = {
+      REPAIRPH10: { discount: 10, label: '10% Tech Partner Discount' },
+      GREENHILLS50: { discount: 50, label: '₱50 Greenhills Voucher' },
+      PASIGECO: { discount: 100, label: '₱100 Pasig Eco Incentive' },
+      CIRCULAR2026: { discount: 15, label: '15% Circular Economy Promo' },
+    };
+    if (vouchers[code]) {
+      setAppliedVoucher({ code, ...vouchers[code] });
+      setVoucherInput('');
+    } else {
+      setVoucherError('Invalid voucher code. Try REPAIRPH10, GREENHILLS50, or PASIGECO.');
+    }
+  }
+
+  async function handleCheckout() {
+    if (!user) {
+      router.push('/login?next=/cart');
+      return;
+    }
+    if (address.trim().length < 15) {
+      setCheckoutError('Please provide a complete Philippine delivery address (minimum 15 characters).');
+      return;
+    }
+    setBusy(true);
+    setCheckoutError('');
+    try {
+      const payload = {
+        items: cart.map(item => ({
+          listingId: item.listingId,
+          quantity: item.quantity,
+        })),
+        address: address.trim(),
+        courier,
+        voucherCode: appliedVoucher?.code || undefined,
+      };
+      await api('/api/market/cart/checkout', 'POST', payload);
+      onClear();
+      router.push('/orders');
+    } catch (e) {
+      setCheckoutError((e as Error).message || 'Checkout failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (cart.length === 0) {
+    return (
+      <div className="container" style={{ padding: '60px 0', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', padding: '20px', background: 'var(--surface-alt)', borderRadius: '50%', marginBottom: '18px' }}>
+          <ShoppingCart size={40} color="var(--muted)" />
+        </div>
+        <h2>Your parts cart is empty.</h2>
+        <p style={{ color: 'var(--muted)', maxWidth: '440px', margin: '8px auto 24px' }}>
+          Discover donor logic boards, micro-soldering IC chips, and bulk scrap trays across the Philippines.
+        </p>
+        <Link className="button dark" href="/marketplace">
+          Explore Marketplace ↗
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container">
+      <Heading
+        title="Reclaimed Parts Cart"
+        text={`Atomic multi-item escrow checkout · ${cart.length} unique component(s)`}
+      />
+
+      {checkoutError && (
+        <div className="notice error" role="alert" style={{ marginBottom: '20px' }}>
+          {checkoutError}
+        </div>
+      )}
+
+      <div className="cart-layout">
+        <div className="cart-items-container">
+          {cart.map(item => (
+            <div key={item.listingId} className="cart-item-card">
+              <div className="cart-item-thumb">
+                <Art art={item.art} alt={item.title} />
+              </div>
+              <div className="cart-item-details">
+                <h4>
+                  <Link href={`/parts/${item.listingId}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                    {item.title}
+                  </Link>
+                </h4>
+                <div className="cart-item-meta">
+                  <span>{item.brand} {item.model}</span>
+                  {item.condition && <span>· {item.condition}</span>}
+                  {item.boardClass && <span>· {item.boardClass}</span>}
+                  {item.verifiedPass && (
+                    <span className="verified-pass-badge" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                      <CheckCircle size={10} /> VERIFIED PASS
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '4px' }}>
+                  Seller: <strong>{item.sellerName}</strong>
+                </div>
+                <div className="cart-item-price">
+                  {money(item.priceCentavos)} <span style={{ fontSize: '11px', color: 'var(--muted)' }}>/ unit</span>
+                </div>
+              </div>
+
+              <div className="cart-item-actions">
+                <div className="cart-qty-stepper">
+                  <button
+                    type="button"
+                    className="cart-qty-btn"
+                    onClick={() => onUpdateQuantity(item.listingId, item.quantity - 1)}
+                    disabled={item.quantity <= item.minimumQuantity}
+                    title="Decrease quantity"
+                  >
+                    -
+                  </button>
+                  <span className="cart-qty-value">{item.quantity}</span>
+                  <button
+                    type="button"
+                    className="cart-qty-btn"
+                    onClick={() => onUpdateQuantity(item.listingId, item.quantity + 1)}
+                    disabled={item.quantity >= item.maxQuantity}
+                    title="Increase quantity"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="cart-remove-btn"
+                  onClick={() => onRemove(item.listingId)}
+                >
+                  <Trash2 size={13} /> Remove
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+            <Link href="/marketplace" className="button outline small">
+              <ArrowLeft size={14} /> Continue Shopping
+            </Link>
+            <button type="button" className="button outline small" onClick={onClear}>
+              Clear Cart
+            </button>
+          </div>
+        </div>
+
+        <aside className="cart-summary-box">
+          <h3>Escrow Checkout</h3>
+
+          <label style={{ display: 'block', marginBottom: '14px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.06em' }}>
+              Delivery Address (Philippines)
+            </span>
+            <textarea
+              rows={3}
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              placeholder="Full delivery address with city and barangay (minimum 15 characters)..."
+              style={{
+                width: '100%',
+                marginTop: '6px',
+                padding: '10px 12px',
+                background: 'var(--surface-alt)',
+                border: '1px solid var(--line)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--ink)',
+                fontSize: '13px',
+              }}
+            />
+          </label>
+
+          <div className="courier-selector-group">
+            <label>Courier Shipping Partner</label>
+            <div className="courier-pill-list">
+              {(['J&T', 'LBC', 'Lalamove'] as const).map(c => (
+                <div
+                  key={c}
+                  className={`courier-pill ${courier === c ? 'selected' : ''}`}
+                  onClick={() => setCourier(c)}
+                >
+                  <div>{c}</div>
+                  <div style={{ fontSize: '10px', color: courier === c ? 'var(--green)' : 'var(--muted)' }}>
+                    {c === 'J&T' ? '₱120' : c === 'LBC' ? '₱180' : '₱250'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: '4px' }}>
+              Partner Merchant Voucher
+            </div>
+            {appliedVoucher ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--green-light)', border: '1px solid var(--green)', borderRadius: 'var(--radius-md)', margin: '8px 0' }}>
+                <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 600 }}>
+                  <Ticket size={13} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+                  {appliedVoucher.code} ({appliedVoucher.label})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAppliedVoucher(null)}
+                  style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="voucher-input-group">
+                <input
+                  type="text"
+                  placeholder="e.g. REPAIRPH10"
+                  value={voucherInput}
+                  onChange={e => setVoucherInput(e.target.value)}
+                />
+                <button type="button" className="button outline small" onClick={applyVoucherCode}>
+                  Apply
+                </button>
+              </div>
+            )}
+            {voucherError && (
+              <div style={{ fontSize: '11.5px', color: 'var(--red)', marginTop: '-8px', marginBottom: '10px' }}>
+                {voucherError}
+              </div>
+            )}
+            <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>
+              Available: <code>REPAIRPH10</code>, <code>GREENHILLS50</code>, <code>PASIGECO</code>, <code>CIRCULAR2026</code>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--line)', paddingTop: '12px', marginTop: '12px' }}>
+            <div className="summary-row">
+              <span>Items Subtotal</span>
+              <strong>{money(subtotalCentavos)}</strong>
+            </div>
+
+            {discountCentavos > 0 && (
+              <div className="summary-row discount-row">
+                <span>Voucher Discount</span>
+                <strong>-{money(discountCentavos)}</strong>
+              </div>
+            )}
+
+            <div className="summary-row">
+              <span>{courier} Shipping Fee</span>
+              <strong>{money(deliveryFeeCentavos)}</strong>
+            </div>
+
+            <div className="summary-row">
+              <span>
+                Buyer Escrow Fee ({feeRate}% · {effectiveTier.toUpperCase()})
+              </span>
+              <strong style={{ color: 'var(--green)' }}>+{money(platformFeeCentavos)}</strong>
+            </div>
+
+            <div className="summary-row total-row">
+              <span>Estimated Total GMV</span>
+              <strong>{money(totalGmvCentavos)}</strong>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '11.5px', color: 'var(--muted)', margin: '14px 0 18px', lineHeight: '1.5' }}>
+            Atomic multi-order transaction: Protected by Silicon Trading 72-hour microscope inspection escrow. Payout released after delivery verification.
+          </p>
+
+          <button
+            type="button"
+            className="button dark full"
+            disabled={busy || address.trim().length < 15}
+            onClick={handleCheckout}
+          >
+            {busy ? 'Securing Escrow Checkouts…' : `Place Escrow Order (${money(totalGmvCentavos)}) ↗`}
+          </button>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function VerifiedPassPage({ onAddToCart }: { onAddToCart?: (l: Listing) => void }) {
+  const remote = useRemote<{ listings: Listing[]; total: number }>('/api/market/catalog?verified=1');
+
+  return (
+    <div className="container">
+      <Heading
+        title="Verified Pass IC Diagnostics"
+        text="Package 2: Certified micro-soldering inspection, pad integrity confirmation, and priority marketplace placement."
+      />
+
+      <div className="verified-pass-card" style={{ padding: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--green)', marginBottom: '12px' }}>
+          <ShieldCheck size={26} />
+          <h2 style={{ margin: 0, fontSize: '20px' }}>3-Stage Hardware Inspection Protocol</h2>
+        </div>
+        <p style={{ fontSize: '14px', color: 'var(--ink)', maxWidth: '780px', lineHeight: '1.6', margin: '0 0 24px' }}>
+          Every Verified Pass board passes through our rigorous diagnostic checks before reaching technician workbenches. Prevent costly board swaps and solder rework surprises.
+        </p>
+
+        <div className="steps" style={{ marginTop: '20px' }}>
+          <article>
+            <span>STAGE 01</span>
+            <h3>45x Stereo Microscope Inspection</h3>
+            <p>Verification that BGA solder pads, flex connectors, and PCB traces are intact with zero torn or corroded contact points.</p>
+          </article>
+          <article>
+            <span>STAGE 02</span>
+            <h3>Power Bench DC Rail Check</h3>
+            <p>Diode mode multimeter testing across primary power rails (VDD_MAIN / VDD_BOOST). Confirmation of 0.00A idle short-circuit protection.</p>
+          </article>
+          <article>
+            <span>STAGE 03</span>
+            <h3>IC Diagnostic Tagging</h3>
+            <p>Pinpoint status tags for PMIC, Audio Codec, Baseband, and NAND storage, paired with priority placement across marketplace searches.</p>
+          </article>
+        </div>
+      </div>
+
+      <div className="pricing-grid">
+        <div className="pricing-card">
+          <span className="eyebrow">SINGLE BOARD INSPECTION</span>
+          <h3>Single Verified Pass</h3>
+          <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Pay-per-listing inspection for technician sellers with occasional scrap boards.</p>
+          <div className="pricing-price">
+            ₱49 <small>/ board</small>
+          </div>
+          <ul className="pricing-features">
+            <li><CheckCircle size={15} /> 45x high-res pad photography badge</li>
+            <li><CheckCircle size={15} /> IC diagnostic verification tag</li>
+            <li><CheckCircle size={15} /> 1.5x boost in marketplace search results</li>
+            <li><CheckCircle size={15} /> 72-hour buyer inspection escrow guarantee</li>
+          </ul>
+          <Link className="button dark full" href="/sell?verifiedPass=1">
+            List a Verified Board ↗
+          </Link>
+        </div>
+
+        <div className="pricing-card featured">
+          <span className="pricing-card-badge">REFURBISHER CHOICE</span>
+          <span className="eyebrow">MONTHLY WORKSHOP BUNDLE</span>
+          <h3>Refurbisher Pro Bundle</h3>
+          <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Ideal for repair shops and recyclers listing regular batches of reclaimed logic boards.</p>
+          <div className="pricing-price">
+            ₱399 <small>/ month</small>
+          </div>
+          <ul className="pricing-features">
+            <li><CheckCircle size={15} /> Up to 10 board inspections included monthly</li>
+            <li><CheckCircle size={15} /> Verified Technician profile checkmark badge</li>
+            <li><CheckCircle size={15} /> Priority indexing & top-shelf carousel features</li>
+            <li><CheckCircle size={15} /> Direct Pasig City logistics pickup assistance</li>
+            <li><CheckCircle size={15} /> Dedicated dispute resolution support</li>
+          </ul>
+          <Link className="button dark full" href="/account">
+            Subscribe in Account Tiers ↗
+          </Link>
+        </div>
+      </div>
+
+      <section className="section">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">CERTIFIED INVENTORY</span>
+            <h2>Active Verified Pass Logic Boards</h2>
+          </div>
+          <Link href="/marketplace?verified=1" className="inline-link">
+            View all verified components ↗
+          </Link>
+        </div>
+
+        <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
+          <div className="product-grid">
+            {remote.data?.listings.map(l => (
+              <Card key={l.id} listing={l} onAddToCart={onAddToCart} />
+            ))}
+          </div>
+          {remote.data?.listings.length === 0 && (
+            <div className="empty">No verified boards listed right now. Check back soon or list one today!</div>
+          )}
+        </Remote>
+      </section>
+    </div>
+  );
+}
+
+function OrdersPage({ user }: { user: User | null }) {
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [searchFilter, setSearchFilter] = useState('');
+  const [activeTracking, setActiveTracking] = useState<string | null>(null);
+
+  const remote = useRemote<{ orders: Order[] }>('/api/market/orders');
+
+  if (!user) {
+    return (
+      <div className="container" style={{ padding: '60px 0', textAlign: 'center' }}>
+        <h2>Track Your Reclaimed Orders</h2>
+        <p style={{ color: 'var(--muted)', margin: '8px 0 20px' }}>Log in to view your orders, live courier waybills, and 72-hour escrow countdowns.</p>
+        <Link className="button dark" href="/login?next=/orders">Log in to view orders ↗</Link>
+      </div>
+    );
+  }
+
+  const allOrders = remote.data?.orders || [];
+  const filteredOrders = allOrders.filter(o => {
+    if (activeTab !== 'all' && o.status !== activeTab) return false;
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase();
+      return (
+        String(o.id).includes(q) ||
+        o.listingSnapshot.title.toLowerCase().includes(q) ||
+        o.listingSnapshot.model.toLowerCase().includes(q) ||
+        (o.trackingNumber && o.trackingNumber.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div className="container orders-page">
+      <Heading
+        title="Orders & Shipments"
+        text="72-hour inspection window monitoring, courier waybill tracking, and escrow status."
+      />
+
+      <div className="orders-nav-tabs">
+        {[
+          ['all', 'All Orders'],
+          ['reserved', 'Reserved (Escrow)'],
+          ['shipped', 'Shipped (In Transit)'],
+          ['inspection', '72h Inspection Active'],
+          ['completed', 'Completed'],
+          ['disputed', 'Disputed'],
+        ].map(([tabKey, tabLabel]) => (
+          <button
+            key={tabKey}
+            type="button"
+            className={`orders-nav-tab ${activeTab === tabKey ? 'active' : ''}`}
+            onClick={() => setActiveTab(tabKey)}
+          >
+            {tabLabel} ({tabKey === 'all' ? allOrders.length : allOrders.filter(o => o.status === tabKey).length})
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+        <input
+          type="text"
+          placeholder="Filter by Order ID, device model, or tracking number..."
+          value={searchFilter}
+          onChange={e => setSearchFilter(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '10px 14px',
+            background: 'var(--surface)',
+            border: '1px solid var(--line)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--ink)',
+            fontSize: '13.5px',
+          }}
+        />
+      </div>
+
+      <Remote error={remote.error} retry={remote.reload} loading={!remote.data}>
+        {filteredOrders.length > 0 ? (
+          <div>
+            {filteredOrders.map(o => (
+              <div key={o.id} className="order-row-card">
+                <div style={{ width: '80px', height: '65px', borderRadius: '8px', overflow: 'hidden', background: 'var(--surface-alt)' }}>
+                  <Art art={o.listing?.art} alt={o.listingSnapshot.title} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                    <span className={`status status-${o.status}`} style={{ margin: 0 }}>
+                      {o.status === 'inspection' ? 'Inspection (72h Live)' : o.status}
+                    </span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: 'JetBrains Mono' }}>#{o.id}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>· {date(o.createdAt)}</span>
+                    {o.courier && (
+                      <span className="waybill-badge" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                        {o.courier}: {o.trackingNumber || 'Pending'}
+                      </span>
+                    )}
+                  </div>
+                  <h4 style={{ margin: '0 0 4px', fontSize: '15px' }}>{o.listingSnapshot.title}</h4>
+                  <div style={{ fontSize: '12.5px', color: 'var(--muted)' }}>
+                    Qty: <strong>{o.quantity}</strong> · Total: <strong>{money(o.totalCentavos)}</strong> ·{' '}
+                    {o.buyerId === user.id ? `Seller: ${o.listing.seller.name}` : `Buyer: ${o.buyer.name}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                  <Link href={`/orders/${o.id}`} className="button dark small">
+                    View Order Details ↗
+                  </Link>
+                  {o.trackingNumber && (
+                    <button
+                      type="button"
+                      className="button outline small"
+                      onClick={() => setActiveTracking(o.trackingNumber!)}
+                    >
+                      <Truck size={13} /> Track Waybill
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty">
+            <h3>No orders found in this view.</h3>
+            <p>Reserve parts on the workbench or adjust your search filter.</p>
+            <Link className="button outline" href="/marketplace">Browse Marketplace ↗</Link>
+          </div>
+        )}
+      </Remote>
+
+      {activeTracking && (
+        <div className="modal-overlay" onClick={() => setActiveTracking(null)} role="dialog" aria-modal="true">
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow" style={{ color: 'var(--green)' }}>COURIER LOGISTICS HUB</span>
+                <h3>Live Waybill Tracker: {activeTracking}</h3>
+              </div>
+              <button className="modal-close" onClick={() => setActiveTracking(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="waybill-tracker-box">
+              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>
+                Shipment Checkpoints · Silicon Trading Pasig Hub to Destination
+              </div>
+              <div className="tracking-step-line">
+                <div className="tracking-step-item">
+                  <div className="tracking-step-dot" />
+                  <strong>Out for Delivery</strong>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Rider dispatched in destination city. Keep phone accessible.</div>
+                </div>
+                <div className="tracking-step-item">
+                  <div className="tracking-step-dot" />
+                  <strong>Arrived at Sorting Hub</strong>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Metro Manila Main Distribution Hub (Quezon City).</div>
+                </div>
+                <div className="tracking-step-item">
+                  <div className="tracking-step-dot" />
+                  <strong>Dispatched from Seller</strong>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)' }}>Parcel scanned at Pasig City Operations Facility.</div>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="button dark full"
+              style={{ marginTop: '20px' }}
+              onClick={() => setActiveTracking(null)}
+            >
+              Close Tracker
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SupportPage({ user }: { user: User | null }) {
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketOrder, setTicketOrder] = useState('');
+  const [ticketMessage, setTicketMessage] = useState('');
+  const [ticketEmail, setTicketEmail] = useState(user?.email || '');
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const [testWaybill, setTestWaybill] = useState('');
+  const [trackingResult, setTrackingResult] = useState<string | null>(null);
+
+  async function submitTicket(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    setSuccess(false);
+    try {
+      await api('/api/support/ticket', 'POST', {
+        subject: ticketSubject,
+        orderId: ticketOrder ? Number(ticketOrder) : undefined,
+        message: ticketMessage,
+        email: ticketEmail,
+      });
+      setSuccess(true);
+      setTicketSubject('');
+      setTicketMessage('');
+    } catch (e) {
+      setError((e as Error).message || 'Unable to submit ticket.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function simulateTrack() {
+    if (!testWaybill.trim()) return;
+    setTrackingResult(testWaybill.trim());
+  }
+
+  return (
+    <div className="container">
+      <Heading
+        title="Support & Dispute Center"
+        text="72-hour microscope inspection dispute resolution, logistics tracking, and technician assistance."
+      />
+
+      <div className="support-grid">
+        <div>
+          <div className="support-info-card" style={{ marginBottom: '24px' }}>
+            <span className="eyebrow" style={{ color: 'var(--green)' }}>72-HOUR ESCROW RESOLUTION</span>
+            <h3 style={{ marginTop: '4px' }}>Hardware Verification Protocol</h3>
+            <p style={{ fontSize: '13.5px', color: 'var(--muted)', lineHeight: '1.6' }}>
+              Our 72-hour escrow guarantee shields buyers against misdiagnosed boards and lifted solder pads. Before altering or reballing any logic board, follow these 4 benchmark checks:
+            </p>
+            <ol style={{ fontSize: '13px', paddingLeft: '18px', color: 'var(--ink)', lineHeight: '1.7', margin: '14px 0' }}>
+              <li><strong>Stereo Microscope Visual:</strong> Confirm zero torn BGA pads, cracked silicon dies, or water damage corrosion.</li>
+              <li><strong>Diode Mode Rail Test:</strong> Multimeter red probe to ground, black probe to VDD_MAIN inductors. Verify normal drop.</li>
+              <li><strong>DC Bench Power Supply:</strong> Set to 4.2V 3A. Confirm 0.00A quiescent current draw before trigger.</li>
+              <li><strong>Chassis & Revision Match:</strong> Ensure chassis codes (e.g. A2633 vs A2482) match your client repair.</li>
+            </ol>
+            <div style={{ background: 'var(--surface-alt)', padding: '12px 14px', borderRadius: '8px', fontSize: '12.5px', border: '1px solid var(--line)' }}>
+              <strong>Notice:</strong> Solder rework, chip de-soldering, or board cutting voids the 72-hour dispute window. File disputes with high-res macro photos before soldering.
+            </div>
+          </div>
+
+          <div className="support-info-card">
+            <span className="eyebrow">PASIG OPERATIONS HUB</span>
+            <h3 style={{ marginTop: '4px' }}>Headquarters & Logistics</h3>
+            <div style={{ fontSize: '13.5px', lineHeight: '1.7', color: 'var(--ink)' }}>
+              <p style={{ margin: '0 0 8px' }}>
+                <strong>Silicon Trading Philippines Inc.</strong><br />
+                San Antonio, Pasig City, Metro Manila 1605<br />
+                Operating Hours: Mon–Sat 9:00 AM – 6:00 PM PHT
+              </p>
+              <p style={{ margin: '0 0 8px' }}>
+                <strong>Technician Hotline:</strong> +63 2 8888 7454<br />
+                <strong>Dispute Email:</strong> disputes@silicontrading.ph
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="support-info-card" style={{ marginBottom: '24px' }}>
+            <span className="eyebrow">SUBMIT A TICKET</span>
+            <h3 style={{ marginTop: '4px' }}>Dispute or Support Request</h3>
+
+            {success && (
+              <div className="notice success" role="alert" style={{ margin: '12px 0' }}>
+                ✓ Your inquiry has been logged! Our Pasig technical team will review within 4 business hours.
+              </div>
+            )}
+
+            {error && (
+              <div className="notice error" role="alert" style={{ margin: '12px 0' }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={submitTicket} className="form" style={{ marginTop: '16px' }}>
+              <Field
+                label="Your Contact Email"
+                name="email"
+                type="email"
+                value={ticketEmail}
+                onChange={e => setTicketEmail(e.target.value)}
+                required
+              />
+              <Field
+                label="Associated Order # (Optional)"
+                name="orderId"
+                type="number"
+                value={ticketOrder}
+                onChange={e => setTicketOrder(e.target.value)}
+                placeholder="e.g. 104"
+                required={false}
+              />
+              <Field
+                label="Subject"
+                name="subject"
+                value={ticketSubject}
+                onChange={e => setTicketSubject(e.target.value)}
+                placeholder="e.g. 72h Inspection Issue / Lifted Pad on iPhone 13"
+                required
+              />
+              <label>
+                Description of Issue
+                <textarea
+                  rows={4}
+                  value={ticketMessage}
+                  onChange={e => setTicketMessage(e.target.value)}
+                  placeholder="Detail your multimeter readings, diode mode measurements, or courier delays..."
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    background: 'var(--surface-alt)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--ink)',
+                    fontSize: '13.5px',
+                  }}
+                />
+              </label>
+              <button disabled={busy} className="button dark full">
+                {busy ? 'Submitting…' : 'Submit Support Inquiry ↗'}
+              </button>
+            </form>
+          </div>
+
+          <div className="support-info-card">
+            <span className="eyebrow">UNIVERSAL LOGISTICS CHECK</span>
+            <h3 style={{ marginTop: '4px' }}>Quick Courier Waybill Lookup</h3>
+            <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 12px' }}>
+              Track any LBC Express, J&T, or Lalamove tracking number assigned to your orders.
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Enter tracking number (e.g. 1792-8829-4910)..."
+                value={testWaybill}
+                onChange={e => setTestWaybill(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  background: 'var(--surface-alt)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--ink)',
+                  fontSize: '13px',
+                }}
+              />
+              <button type="button" className="button outline small" onClick={simulateTrack}>
+                Track
+              </button>
+            </div>
+
+            {trackingResult && (
+              <div className="waybill-tracker-box">
+                <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--green)' }}>
+                  Waybill #{trackingResult} Active
+                </div>
+                <div className="tracking-step-line">
+                  <div className="tracking-step-item">
+                    <div className="tracking-step-dot" />
+                    <strong>Package In Transit</strong>
+                    <div style={{ fontSize: '11.5px', color: 'var(--muted)' }}>Transferred to regional delivery hub.</div>
+                  </div>
+                  <div className="tracking-step-item">
+                    <div className="tracking-step-dot" />
+                    <strong>Pasig Sorting Complete</strong>
+                    <div style={{ fontSize: '11.5px', color: 'var(--muted)' }}>Package weighed and origin verified.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountPage({ user, onUserUpdate }: { user: User; onUserUpdate: (u: User) => void }) {
+  const [name, setName] = useState(user.name);
+  const [location, setLocation] = useState(user.location);
+  const [phone, setPhone] = useState(user.phone || '');
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  const activeTier = user.tier || 'starter';
+
+  async function handleProfileSave(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { user: updated } = await api<{ user: User }>('/api/account/profile', 'POST', {
+        name,
+        location,
+        phone,
+      });
+      onUserUpdate(updated);
+      setSuccess('Profile updated successfully.');
+    } catch (e) {
+      setError((e as Error).message || 'Failed to update profile.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function switchTier(newTier: 'starter' | 'pro' | 'enterprise') {
+    if (newTier === activeTier) return;
+    setBusy(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { user: updated } = await api<{ user: User }>('/api/account/profile', 'POST', {
+        tier: newTier,
+      });
+      onUserUpdate(updated);
+      setSuccess(`Upgraded to ${newTier.toUpperCase()} tier! Fee rate updated.`);
+    } catch (e) {
+      setError((e as Error).message || 'Failed to change tier.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="container">
+      <Heading
+        title="Technician Account & Procurement Tiers"
+        text="Manage your repair workshop profile, B2B procurement tier, and escrow settings."
+      />
+
+      {success && <div className="notice success" role="alert">{success}</div>}
+      {error && <div className="notice error" role="alert">{error}</div>}
+
+      <div className="cart-layout" style={{ marginTop: '24px' }}>
+        <div className="panel">
+          <h3>Technician Profile</h3>
+          <form onSubmit={handleProfileSave} className="form" style={{ marginTop: '16px' }}>
+            <Field
+              label="Full Name"
+              name="name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+            />
+            <Field
+              label="Email Address"
+              name="email"
+              type="email"
+              value={user.email}
+              required
+              disabled
+            />
+            <Field
+              label="Workshop / Shop Location"
+              name="location"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              placeholder="e.g. Raon Electronic Center, Quiapo, Manila"
+              required
+            />
+            <Field
+              label="Contact Phone / Mobile"
+              name="phone"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="e.g. +63 917 123 4567"
+              required={false}
+            />
+            <button disabled={busy} className="button dark">
+              {busy ? 'Saving Changes…' : 'Save Profile Changes ↗'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--line)' }}>
+            <h4>Account Verification Status</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+              <span className={`status ${user.sellerVerified ? 'status-completed' : 'status-reserved'}`}>
+                {user.sellerVerified ? '✓ Verified Technician' : 'Standard Member'}
+              </span>
+              <span style={{ fontSize: '13px', color: 'var(--muted)' }}>
+                Role: <strong>{user.role.toUpperCase()}</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <aside className="panel">
+          <h3>Quick Workbench Links</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px' }}>
+            <Link className="button outline full" href="/orders">
+              <Package size={15} /> View My Orders ↗
+            </Link>
+            <Link className="button outline full" href="/cart">
+              <ShoppingCart size={15} /> Open Parts Cart ↗
+            </Link>
+            <Link className="button outline full" href="/workspace">
+              <Cpu size={15} /> Workbench Dashboard ↗
+            </Link>
+            <Link className="button outline full" href="/support">
+              <HelpCircle size={15} /> Support & Disputes ↗
+            </Link>
+          </div>
+        </aside>
+      </div>
+
+      <section className="section" style={{ marginTop: '36px' }}>
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">PACKAGE 3: REPAIR SHOP PROCUREMENT</span>
+            <h2>B2B Refurbisher Membership Tiers</h2>
+          </div>
+          <span className="badge-rate">Active: {activeTier.toUpperCase()}</span>
+        </div>
+
+        <div className="pricing-grid">
+          <div className={`pricing-card ${activeTier === 'starter' ? 'featured' : ''}`}>
+            {activeTier === 'starter' && <span className="pricing-card-badge">ACTIVE PLAN</span>}
+            <span className="eyebrow">FREELANCE / HOBBYIST</span>
+            <h3>Starter Refurbisher</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Pay-as-you-go sourcing for small shops and independent micro-soldering technicians.</p>
+            <div className="pricing-price">
+              ₱0 <small>/ month</small>
+            </div>
+            <ul className="pricing-features">
+              <li><CheckCircle size={15} /> Standard 8% escrow commission</li>
+              <li><CheckCircle size={15} /> Standard 72h dispute window</li>
+              <li><CheckCircle size={15} /> Full marketplace catalog access</li>
+              <li><CheckCircle size={15} /> Standard courier logistics</li>
+            </ul>
+            <button
+              type="button"
+              className="button outline full"
+              disabled={busy || activeTier === 'starter'}
+              onClick={() => switchTier('starter')}
+            >
+              {activeTier === 'starter' ? 'Current Tier' : 'Downgrade to Starter'}
+            </button>
+          </div>
+
+          <div className={`pricing-card ${activeTier === 'pro' ? 'featured' : ''}`}>
+            {activeTier === 'pro' && <span className="pricing-card-badge">ACTIVE PLAN</span>}
+            <span className="eyebrow">PRO WORKSHOP (HIGH VOLUME)</span>
+            <h3>Pro Workshop Tier</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Designed for busy urban repair centers sourcing 10+ motherboards per month.</p>
+            <div className="pricing-price">
+              ₱2,499 <small>/ month</small>
+            </div>
+            <ul className="pricing-features">
+              <li><CheckCircle size={15} /> <strong>Reduced 5% platform escrow fee (saves 3%)</strong></li>
+              <li><CheckCircle size={15} /> Verified Pro Technician badge</li>
+              <li><CheckCircle size={15} /> Priority dispute queue (2-hour response)</li>
+              <li><CheckCircle size={15} /> 5 free Verified Pass certifications / mo</li>
+            </ul>
+            <button
+              type="button"
+              className="button dark full"
+              disabled={busy || activeTier === 'pro'}
+              onClick={() => switchTier('pro')}
+            >
+              {activeTier === 'pro' ? 'Current Tier' : 'Upgrade to Pro Workshop ↗'}
+            </button>
+          </div>
+
+          <div className={`pricing-card ${activeTier === 'enterprise' ? 'featured' : ''}`}>
+            {activeTier === 'enterprise' && <span className="pricing-card-badge">ACTIVE PLAN</span>}
+            <span className="eyebrow">ENTERPRISE REFINING & REPAIR</span>
+            <h3>Enterprise Pipeline</h3>
+            <p style={{ color: 'var(--muted)', fontSize: '13px' }}>For large e-waste recyclers, insurance salvagers, and wholesale motherboard brokers.</p>
+            <div className="pricing-price">
+              ₱6,999 <small>/ month</small>
+            </div>
+            <ul className="pricing-features">
+              <li><CheckCircle size={15} /> <strong>0% Platform Commission (0% take rate)</strong></li>
+              <li><CheckCircle size={15} /> Unlimited Verified Pass inspections</li>
+              <li><CheckCircle size={15} /> Direct Pasig hub inventory consignment</li>
+              <li><CheckCircle size={15} /> Dedicated account manager & API bulk feeds</li>
+            </ul>
+            <button
+              type="button"
+              className="button dark full"
+              disabled={busy || activeTier === 'enterprise'}
+              onClick={() => switchTier('enterprise')}
+            >
+              {activeTier === 'enterprise' ? 'Current Tier' : 'Upgrade to Enterprise ↗'}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ThemeToggle() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
@@ -2459,6 +3786,87 @@ export default function MarketApp() {
   const [sessionError, setSessionError] = useState('');
   const [logoutBusy, setLogoutBusy] = useState(false);
 
+  // Silicon Trading Cart State with LocalStorage Persistence
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('silicon_trading_cart');
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('silicon_trading_cart', JSON.stringify(cart));
+    }
+  }, [cart]);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }
+
+  function addToCart(listing: Listing, qty = 1) {
+    setCart(prev => {
+      const existing = prev.find(item => item.listingId === listing.id);
+      const addQty = Math.max(listing.minimumQuantity, qty);
+      if (existing) {
+        const newQty = Math.min(listing.quantity, existing.quantity + addQty);
+        return prev.map(item => (item.listingId === listing.id ? { ...item, quantity: newQty } : item));
+      }
+      return [
+        ...prev,
+        {
+          listingId: listing.id,
+          title: listing.title,
+          priceCentavos: listing.priceCentavos,
+          quantity: addQty,
+          minimumQuantity: listing.minimumQuantity,
+          maxQuantity: listing.quantity,
+          art: listing.art,
+          sellerName: listing.seller.name,
+          sellerId: listing.sellerId,
+          brand: listing.brand,
+          model: listing.model,
+          boardClass: listing.boardClass,
+          condition: listing.condition,
+          verifiedPass: listing.verifiedPass,
+          chassisModel: listing.chassisModel,
+        },
+      ];
+    });
+    showToast(`Added "${listing.title}" to parts cart.`);
+  }
+
+  function updateCartQuantity(listingId: number, qty: number) {
+    setCart(prev =>
+      prev.map(item => {
+        if (item.listingId === listingId) {
+          const clamped = Math.max(item.minimumQuantity, Math.min(item.maxQuantity, qty));
+          return { ...item, quantity: clamped };
+        }
+        return item;
+      })
+    );
+  }
+
+  function removeFromCart(listingId: number) {
+    setCart(prev => prev.filter(item => item.listingId !== listingId));
+    showToast('Removed component from cart.');
+  }
+
+  function clearCart() {
+    setCart([]);
+  }
+
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   async function session() {
     setSessionError('');
     try {
@@ -2493,14 +3901,44 @@ export default function MarketApp() {
   const isBulk = pathname === '/marketplace' && searchParams.get('category') === 'Bulk lots';
   const isMarketplace = (pathname === '/marketplace' && !isBulk) || Boolean(part);
   const isHowItWorks = pathname === '/how-it-works';
+  const isCart = pathname === '/cart';
+  const isVerifiedPass = pathname === '/verified-pass';
+  const isOrders = pathname === '/orders';
+  const isSupport = pathname === '/support';
+  const isAccount = pathname === '/account';
 
-  if (pathname === '/') content = <Home user={user} />;
-  else if (pathname === '/marketplace') content = <Catalog />;
-  else if (pathname === '/how-it-works') content = <About />;
-  else if (pathname === '/login' || pathname === '/register') {
+  if (pathname === '/') {
+    content = <Home user={user} onAddToCart={addToCart} />;
+  } else if (pathname === '/marketplace') {
+    content = <Catalog onAddToCart={addToCart} />;
+  } else if (pathname === '/how-it-works') {
+    content = <About />;
+  } else if (isCart) {
+    content = (
+      <CartPage
+        cart={cart}
+        user={user}
+        onUpdateQuantity={updateCartQuantity}
+        onRemove={removeFromCart}
+        onClear={clearCart}
+      />
+    );
+  } else if (isVerifiedPass) {
+    content = <VerifiedPassPage onAddToCart={addToCart} />;
+  } else if (isOrders) {
+    content = <OrdersPage user={user} />;
+  } else if (isSupport) {
+    content = <SupportPage user={user} />;
+  } else if (isAccount) {
+    content = (
+      <Gate user={user}>
+        {user && <AccountPage user={user} onUserUpdate={setUser} />}
+      </Gate>
+    );
+  } else if (pathname === '/login' || pathname === '/register') {
     content = <Auth key={pathname} register={pathname === '/register'} onAuth={setUser} />;
   } else if (part && !part[2]) {
-    content = <Detail id={part[1]} user={user} />;
+    content = <Detail id={part[1]} user={user} onAddToCart={addToCart} />;
   } else if (pathname === '/workspace' || pathname === '/sell' || part?.[2] || order) {
     content = !ready ? (
       <div className="container empty" role="status">Checking your session…</div>
@@ -2535,18 +3973,25 @@ export default function MarketApp() {
         </Link>
         <nav aria-label="Main navigation">
           <Link className={isMarketplace ? 'active' : ''} href="/marketplace">Marketplace</Link>
-          <Link className={isBulk ? 'active' : ''} href="/marketplace?category=Bulk+lots">Bulk Scrap Lots</Link>
-          <Link className={isHowItWorks ? 'active' : ''} href="/how-it-works">How it works</Link>
+          <Link className={pathname === '/sell' ? 'active' : ''} href="/sell">Sell a Board</Link>
+          <Link className={isVerifiedPass ? 'active' : ''} href="/verified-pass">Verified Pass</Link>
+          <Link className={isOrders ? 'active' : ''} href="/orders">Orders</Link>
+          <Link className={isSupport ? 'active' : ''} href="/support">Support / Dispute</Link>
+          <Link className={isAccount ? 'active' : ''} href="/account">Account</Link>
         </nav>
         <div className="header-actions">
-          {/* Cyber Dark / Industrial Light Theme Toggle */}
           <ThemeToggle />
 
-          {/* User Session Pill */}
+          <Link href="/cart" className="cart-nav-button" aria-label="Parts Cart">
+            <ShoppingCart size={16} />
+            <span>Cart</span>
+            {cartItemCount > 0 && <span className="cart-badge">{cartItemCount}</span>}
+          </Link>
+
           {user ? (
             <>
               <Link href="/workspace" className="login-link">
-                My workspace ({user.role.toUpperCase()})
+                Workspace ({user.role.toUpperCase()})
               </Link>
               <button className="text-button" disabled={logoutBusy} onClick={logout}>
                 {logoutBusy ? 'Logging out…' : 'Log out'}
@@ -2565,6 +4010,12 @@ export default function MarketApp() {
       </header>
 
       <main id="main">
+        {toastMessage && (
+          <div className="toast-notice" role="status">
+            <CheckCircle size={16} color="var(--green)" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
         {sessionError && (
           <div className="container notice error" role="alert">
             Unable to check your account: {sessionError}{' '}
@@ -2588,22 +4039,23 @@ export default function MarketApp() {
           <div>
             <span className="eyebrow">EXPLORE</span>
             <Link href="/marketplace">Browse components</Link>
-            <Link href={user ? '/workspace' : '/register'}>
-              {user ? 'My workspace' : 'Join the workbench'}
-            </Link>
-            <Link href="/how-it-works">How it works</Link>
+            <Link href="/verified-pass">Verified Pass ICs</Link>
+            <Link href="/orders">Orders & Waybills</Link>
+            <Link href="/cart">Parts Cart</Link>
           </div>
           <div>
-            <span className="eyebrow">THE DETAILS</span>
-            <p>
-              Pasig City, Metro Manila<br />
-              Connecting technicians across the Philippines
+            <span className="eyebrow">SUPPORT & HUB</span>
+            <Link href="/support">72-Hour Escrow Center</Link>
+            <Link href="/account">Procurement Tiers</Link>
+            <Link href="/how-it-works">How it works</Link>
+            <p style={{ marginTop: '10px', fontSize: '12px', color: 'var(--muted)' }}>
+              Pasig City Operations Hub, Metro Manila
             </p>
             <span className="prototype-label">Philippine Circular Tech Network</span>
           </div>
         </div>
         <div className="container footer-bottom">
-          <span>© {new Date().getFullYear()} Silicon Trading. Built for the circular economy.</span>
+          <span>© {new Date().getFullYear()} Silicon Trading. Built for the circular economy (RA 9003 & RA 6969).</span>
           <span>Less waste. More possibility. ↗</span>
         </div>
       </footer>
